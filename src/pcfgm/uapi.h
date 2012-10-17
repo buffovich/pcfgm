@@ -1,5 +1,5 @@
-#ifndef PCFGMOD_INTERFACE
-#define PCFGMOD_INTERFACE
+#ifndef PCFGMOD_USER_API
+#define PCFGMOD_USER_API
 
 #include <stddef.h>
 
