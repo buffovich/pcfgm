@@ -65,6 +65,9 @@
  * \todo I suppose that it would be convinient to have ability to
  * translate scheme description to C code for neat getting/setting.
  * Something like "uint32 get_cfg_param_log_size( cfg_descr_t cfg );".
+ * 
+ * \todo Create utils.h with user wishes. I realize that menrioned
+ * API may be too minimalistic sometimes.
  *
  * \section incapsulation Data incapsulation
  * You may be noticed already that some of standart structures has
@@ -73,7 +76,15 @@
  * be done for you by library (data type parsing, transorming and
  * checking). Stay tuned to see how.
  */
-
+ 
+/**
+ * Common definition of descriptor.
+ * Descriptor is a quite common thing in the library. It is used for
+ * config session binding, config node binding and so on.
+ * @see cfg_t
+ * @see cfg_node_t
+ */
+typedef void* cfg_descriptor_t;
 /**
  * Descriptor of config.
  * When we open particular instance of config, this value is returned.
@@ -82,29 +93,29 @@
  * will be propagated to all instances. Hooks will be invoked, change
  * descriptors will be changed. After using,
  * descriptor should be closed.
- * @see cfg_state_descr_t
+ * @see cfg_state_t
  * @see cfg_init();
  * @see cfg_init_as();
- * @see cfg_destroy_desc()
+ * @see cfg_destroy()
  */
-typedef void * cfg_descr_t;
+typedef cfg_descriptor_t cfg_t;
 /**
  * Opens new session for default config.
  * Opens new session for config for current application name (argv[0]).
  * @return config session descriptor, NULL if error
  * @see cfg_init_as()
- * @see cfg_destroy_desc()
+ * @see cfg_destroy()
  */
-extern cfg_descr_t cfg_init( void );
+extern cfg_t cfg_init( void );
 /**
  * Opens new session for config.
  * Opens new session for config for specified app name.
  * @param app_id  application name (or ID), default if NULL
  * @return config session descriptor, NULL if error
  * @see cfg_init()
- * @see cfg_destroy_desc()
+ * @see cfg_destroy()
  */
-extern cfg_descr_t cfg_init_as( const char* app_id );
+extern cfg_t cfg_init_as( const char* app_id );
 /**
  * Close config session/destroy any desriptor with associated buffers.
  * @param cfg config session descriptor
@@ -112,9 +123,9 @@ extern cfg_descr_t cfg_init_as( const char* app_id );
  * @see cfg_init()
  * @see cfg_init_as()
  */
-extern int cfg_destroy_desc( cfg_descr_t cfg );
+extern int cfg_destroy( cfg_descriptor_t cfg );
 /**
- * Splitted key's path.
+ * Splits key's path.
  * This structure accelerates access to elements of path and it's
  * more convinient for library code. But there is just a little extra
  * space is used because "components" point to different parts of
@@ -134,67 +145,132 @@ typedef struct _cfg_key_path {
  * Pass path and allocated structure for splitted path to it and get
  * splitted path linked to source string.
  * @param path source string which will be splitted
- * @param spath pointer to variable where address of newly
- *              created 'splitting' will be stored; should be cleaned
- *              later by caller
- * @return number of components if everything is OK, 0 - otherwise
+ * @return newly created 'splitting'; should be cleaned later by caller
+ *         through standard free(); NULL - if error
  */
-extern int cfg_path_split( const char* path, cfg_key_path_t** spath);
+extern cfg_key_path_t* cfg_path_split( const char* path );
 /**
- * Represents sub-tree as separate config
- * Allows reflecting of particular branch of config to separate config.
- * It may be useful if some part of code needs only particular sub-tree.
- * This saves CPU cycles and prevent walking from root of config through
- * identical path.
+ * Node descriptor.
+ * This entity is used to play with nodes within config.
+ * @see cfg_node_get()
+ * @see cfg_node_get_path()
+ * @see cfg_node_get_name()
+ * @see cfg_node_get_parent()
+ * @see cfg_node_lock()
+ * @see cfg_node_unlock()
+ * @see cfg_node_watch()
+ * @see cfg_node_unwatch()
+ * @see cfg_node_get_watcher()
+ * @see cfg_data_get()
+ * @see cfg_data_set()
+ * @see cfg_iterator_get()
+ * @see cfg_iterator_next()
+ */
+typedef cfg_descriptor_t cfg_node_t;
+/**
+ * Represents sub-tree root.
+ * Get descriptor of node with specified path.
  * @param cfg source config which contains target subtree
  * @param path to subtree from root; if == NULL then source descriptor
  *             will be returned
  * @return descriptor binded to mentioned subtree or (spath == NULL)
  *         source
- * @see cfg_destroy_desc()
+ * @see cfg_destroy()
  */
-extern cfg_descr_t cfg_path_as_cfg( cfg_descr_t cfg,
-    const cfg_key_path_t* spath );
+extern cfg_node_t cfg_node_get( cfg_t cfg,
+    const cfg_key_path_t* spath
+);
 /**
- * Descriptor of particular state of config.
- * Some value which is linked to particular state
- * of particular config session. Potentially, we can produce diff
- * between two states treating two descriptors as, for example,
- * two revision numbers.
- * @see cfg_state_get()
- * @see cfg_state_as_cfg()
- */ 
-typedef cfg_descr_t cfg_state_descr_t;
+ * Get full node path.
+ * @param node node which path we want to get
+ * @return structure describes full path to node including name of node;
+ *         should be utilized by user through standard free(); NULL if
+ *         error occured
+ * @see cfg_node_get()
+ * @see cfg_node_get_name()
+ * @see cfg_node_get_parent()
+ */
+extern cfg_key_path_t* cfg_node_get_path( cfg_node_t node );
 /**
- * Get descriptor for current state.
+ * Get node name.
+ * @param node node which name we want to get
+ * @return name of node or NULL if error occured; don't try to free it!
+ * @see cfg_node_get()
+ * @see cfg_node_get_path()
+ * @see cfg_node_get_parent()
+ */
+extern const char* cfg_node_get_name( cfg_node_t node );
+/**
+ * Get parent node of passed node.
+ * @param node which parent we want to get
+ * @return parent node of passed node or NULL if error occured
+ * @see cfg_node_get()
+ * @see cfg_node_get_path()
+ * @see cfg_node_get_name()
+ */
+extern cfg_node_t cfg_node_get_parent( cfg_node_t node );
+/**
+ * Represents iterator.
+ * This thing is used in within operations related to iteration through
+ * node children. As it has been mentioned before, we have tree-like
+ * config structure. Some nodes may have variadic number of subnodes.
+ * It may be used to construct hashtables in config. So we have ability
+ * to iterate through keys and its values.
+ * @see cfg_iterator_get()
+ * @see cfg_iterator_next()
+ */
+typedef cfg_descriptor_t cfg_iterator_t;
+/**
+ * Creates iterator.
+ * Everything is simple - we create iterator for iterating through
+ * children of passed subnode.
+ * @param parent subnode path
+ * @return iterator if everything is fine; NULL - otherwise; iterator
+ *         should be utilized via cfg_destroy routine
+ * @see cfg_iterator_t
+ * @see cfg_iterator_next()
+ */
+extern cfg_iterator_t cfg_iterator_get( cfg_node_t parent );
+/**
+ * Get next key-node pair.
+ * Get key-node pair of the next child according to passed iterator's
+ * position. We can get only key or only node descriptor. It depends on
+ * what we pass as argument for key and node parameters.
+ * @param iter iterator
+ * @param key pointer to variable where pointer to key name will be
+ *            stored; if NULL then key name won't be returned
+ * @param node pointer to variable where node descriptor will be
+ *             stored; if NULL then node won't be returned
+ * @return >0 - ok; 0 - otherwise
+ * @see cfg_iterator_get()
+ * @see cfg_iterator_t
+ */
+extern int cfg_iterator_next( cfg_iterator_t iter,
+    const char** key,
+    cfg_node_t* node
+);
+/**
+ * Get current state as new config.
  * Get thing which descripts current config state for specified subtree.
  * If subpath == NULL then entire config will be snapshoted.
  * @param cfg config descriptor (don't think that passing
  *            config-from-state is a good idea)
  * @param subpath subpath for snapshot
- * @return thing which desripts current config revision
+ * @return thing which descripts current config revision; should be
+ *         utlize through cfg_destroy()
+ * @see cfg_destroy()
  */
-extern cfg_state_descr_t cfg_state_get( cfg_descr_t cfg,
+extern cfg_t cfg_state_get( cfg_t cfg,
     const cfg_key_path_t* subpath
 );
 /**
- * Converts state to full-weight config.
- * Config state descriptor is just an anchor on the timeline. It
- * should be post-processed to use it as config. This routine does
- * mentioned cast.
- * @param state state descriptor
- * @return config descriptor which is ready for use in
- *         get/set/enumerate operations
- */
-extern cfg_descr_t cfg_state_as_cfg( cfg_state_descr_t state );
-/**
  * Change type.
- * Value od such type is passed to cakkback to tell what kind oj change
+ * Value od such type is passed to callback to tell what kind of change
  * has appeared.
- * @see cfg_change_callback_set()
- * @see cfg_change_callback_get()
- * @see cfg_change_callback_reset()
- * @see cfg_change_callback_t
+ * @see cfg_node_watch()
+ * @see cfg_node_get_watcher()
+ * @see cfg_node_unwatch()
+ * @see cfg_watcher_t
  */
 typedef enum _change_type {
     KEY_CHANGED, /**< Value of key has been changed */
@@ -211,12 +287,6 @@ typedef enum _change_type {
  * We can define the rest content of the structure with help of
  * is_vector flag. If is_vector >0 then considered structure describes
  * vector type. Otherwise - it's scalar type.
- * 
- * Also there is checker procedure which controls correctness and can
- * generate formatted error messages if something wrong in data (for
- * example, if we have fixed-length array of chars describes IPv4
- * address then the message might be "Incorrect IP address:...").
- * @see cfg_param_checker_t
  * @see cfg_param_scalar_type_t
  * @see cfg_param_vector_type_t
  */
@@ -247,7 +317,7 @@ typedef struct _cfg_param_data {
  * Change made in node value.
  * Used for passing to change callback changes if KEY_CHANGED is
  * passed too.
- * @see cfg_byte_block_t
+ * @see cfg_param_data_t
  * @see cfg_change_callback_t
  */
 typedef struct _key_change {
@@ -260,7 +330,7 @@ typedef struct _key_change {
  * on an event of config change and, if it is set then it will be called
  * each time when changes happen under specified subpath.
  * @param cfg config where changes are aimed to occur
- * @param key key under subpath which is modified
+ * @param node node in subtree which is modified
  * @param ch_type change type
  * @param info either pointer to cfg_key_path_t (if changes related to
  *             adding or deleting of keys) or pointer to
@@ -268,69 +338,63 @@ typedef struct _key_change {
  * @param tag user value specified at the hook creation
  * @return >0 if change accepted, 0 if declined (yes, callback is
  *         called before actual operation performed)
- * @see cfg_change_callback_set()
- * @see cfg_change_callback_get()
+ * @see cfg_node_watch()
+ * @see cfg_node_get_watcher()
  * @see cfg_key_path_t
  * @see cfg_change_type_t
  */
-typedef int ( *cfg_change_callback_t )( cfg_descr_t cfg,
-    const cfg_key_path_t* key,
+typedef int ( *cfg_watcher_t )( cfg_t cfg,
+    cfg_node_t node,
     cfg_change_type_t ch_type,
     void* info,
     void* tag
 );
 /**
- * Hang change callback on subpath.
+ * Hang change callback on subtree.
  * Set hook for all chenges which may be made with specified subpath
  * (and all of subkeys if we set recursive callback).
- * @param cfg config where we are going to watch for changes
- * @param subpath start point in config tree for watch
+ * @param subtree start point in config tree for watch
  * @param callback callback routine specified by user
- * @param is_recursive if >0 then callback will be set gor all subkeys
+ * @param is_recursive if >0 then callback will be set for all subkeys
  *                     of specified subpath; otherwise we will watch for
- *                     changes in key specified in subpath only
+ *                     changes in node specified in subtree only
  * @param tag user value which will be passed to callback
  * @return >0 if success, =0 if something is wrong
- * @see cfg_change_callback_t
- * @see cfg_change_callback_get()
- * @see cfg_change_callback_reset()
+ * @see cfg_watcher_t
+ * @see cfg_node_get_watcher()
+ * @see cfg_node_unwatch()
  */
-extern int cfg_change_callback_set( cfg_descr_t cfg,
-    const cfg_key_path_t* subpath,
-    cfg_change_callback_t callback,
+extern int cfg_node_watch( cfg_node_t subtree,
+    cfg_watcher_t callback,
     char is_recursive,
     void* tag
 );
 /**
- * Get callback hanged on specified key.
- * @param cfg config which callnack was hanged on
- * @param subpath subpath in config which callnack was hanged on
+ * Get callback hanged on specified node.
+ * @param subtree subtree in config which callback was hanged on
  * @param tag if != NULL then it should be a pointer to variable
  *            which has type void* where tag passed to
  *            cfg_change_callback_set will be stored
  * @return pointer to routine, NULL if there is nothing set
- * @see cfg_change_callback_set()
- * @see cfg_change_callback_reset()
+ * @see cfg_node_watch()
+ * @see cfg_node_unwatch()
  */
-extern cfg_change_callback_t cfg_change_callback_get( cfg_descr_t cfg,
-    const cfg_key_path_t* subpath,
+extern cfg_watcher_t cfg_node_get_watcher( cfg_node_t subtree,
     void** tag
 );
 /**
- * Reset change callback(s) for specified subpath.
- * Reset change callback set by user for specified subpath. If specified
+ * Reset change callback(s) for specified subtree.
+ * Reset change callback set by user for specified subtree. If specified
  * it resets callbacks for entire subtree.
- * @param cfg config which we are working on
- * @param subpath subpath in config where we are going to reset
+ * @param subtree subtree in config where we are going to reset
  *                callback(s)
  * @param is_recursive if >0 then reset will be performed recursively
  *                     for all subkeys
  * @return >0 - everything is fine, =0 - we got a trouble in reset
- * @see cfg_change_callback_get()
- * @see cfg_change_callback_set()
+ * @see cfg_node_get_watcher()
+ * @see cfg_node_watch()
  */
-extern int cfg_change_callback_reset( cfg_descr_t cfg,
-    const cfg_key_path_t* subpath,
+extern int cfg_node_unwatch( cfg_node_t subtree,
     char is_recursive
 );
 /**
@@ -343,35 +407,30 @@ typedef enum _lock_type {
     LOCK_EXCLUSIVE /**< No one except caller can read or write*/
 } cfg_lock_type_t;
 /**
- * Locks key or subpath.
+ * Locks node or subtree.
  * Locks specified key (or path in case if is_recursive >0)
- * @param cfg config which contains particular key
- * @param subpath key or path we are going to lock
+ * @param subtree node or subtree we are going to lock
  * @param type type of lock
  * @param is_recursive if >0 then lock will be applied for entire
- *                     subtree, othetwise - just for one key
+ *                     subtree, othetwise - just for one node
  * @return >0 - everything is fine, =0 - otherwise
- * @see cfg_key_unlock()
+ * @see cfg_node_unlock()
  */
-extern int cfg_key_lock( cfg_descr_t cfg,
-    const cfg_key_path_t* subpath,
+extern int cfg_node_lock( cfg_node_t subtree,
     cfg_lock_type_t type,
-    char is_recursive
+    unsigned char is_recursive
 );
 /**
- * Unlocks key or subpath.
- * Remove lock from specified key (or recursively removes locks from
- * keys in subtree in case if is_recursive >0).
- * @param cfg config which contains particular key
- * @param subpath key or path we are going to lock
- * @param type type of lock
+ * Unlocks node or subtree.
+ * Remove lock from specified node (or recursively removes locks from
+ * nodes in subtree in case if is_recursive >0).
+ * @param subtree node or subtree we are going to unlock
  * @param is_recursive if >0 then lock will be applied for entire
  *                     subtree, othetwise - just for one key
  * @return >0 - everything is fine, =0 - otherwise
- * @see cfg_key_lock()
+ * @see cfg_node_lock()
  */
-extern int cfg_key_unlock( cfg_descr_t cfg,
-    const cfg_key_path_t* subpath,
+extern int cfg_node_unlock( cfg_node_t subtree,
     char is_recursive
 );
 /**
@@ -437,61 +496,31 @@ typedef struct _cfg_param_vector_data {
  * Get param data.
  * Gets param data and return pointer to structure which represents it.
  * You should transform it to your type by casting .data field casting
- * yourself. You may do everything you want with returned value.
- * Structure should be utilized with cfg_param_destroy.
- * @param cfg config descriptor as usual
- * @param path path to key which data we want to get
+ * yourself. Please, be aware that you get pointer to iternal structure.
+ * Use locking or cloning to be thread-safe.
+ * @param node node which data we want to get
  * @return pointer to structure represents data; NULL if error is
  *         encountered
- * @see cfg_param_get_binded_raw()
- * @see cfg_param_set_raw()
- * @see cfg_param_destroy()
+ * @see cfg_data_set()
+ * @see cfg_data_update()
  * @see cfg_param_data_t
  */
-extern cfg_param_data_t* cfg_param_get_raw( cfg_descr_t cfg,
-    const cfg_key_path_t* path
-);
+extern cfg_param_data_t* cfg_data_get( cfg_node_t node );
 /**
  * Set param data.
- * Sets value for particular parameter with specified key in specified
- * config. Not very cheap operation. You should check
- * cfg_param_update_raw procedure to ensure that you need this one. The
- * differences are mentioned in cfg_param_update_raw description. If
- * we're talking briefly, cfg_param_set_raw walk through entire tree
- * from config root to set parameter. cfg_param_update_raw doesn't.
- * @param cfg config descriptor
- * @param path path to key which data we want to change
+ * Sets value for particular node. You should check
+ * cfg_param_update_raw procedure if you made operations for original
+ * structure returned by cfg_data_get.
+ * @param node node which data we want to change
  * @param data_str value we want to set for the parameter
  * @return >0 if everything is OK; 0 - otherwise
- * @see cfg_param_get_raw()
- * @see cfg_param_update_raw()
- * @see cfg_param_dup()
+ * @see cfg_data_get()
+ * @see cfg_data_update()
+ * @see cfg_data_dup()
  * @see cfg_param_data_t
  */
-extern int cfg_param_set_raw( cfg_descr_t cfg,
-    const cfg_key_path_t* path,
+extern int cfg_data_set( cfg_node_t path,
     const cfg_param_data_t* data_str
-);
-/**
- * Get "binded" or "attended" structure.
- * The main difference between cfg_param_get_binded_raw and
- * cfg_param_get_raw is that the former returns a pointer to not cloned
- * but original structure from iternal buffer which is binded to
- * parameter's tree. You have to deal with returned value with
- * additional care but you don't need to utilize it. If you pass it to
- * cfg_param_destroy then nothing will be done. Advantages and
- * disadvantages of this approach are obvious. Moreover, you aren't
- * permitted to use anything but "binded" structure in
- * cfg_param_update_raw().
- * @param cfg config descriptor
- * @param path path to key which data we want to get
- * @return pointer to "binded" structure represents data;
- *         NULL if error is encountered
- * @see cfg_param_update_raw()
- * @see cfg_param_data_t
- */
-extern cfg_param_data_t* cfg_param_get_binded_raw( cfg_descr_t cfg,
-    const cfg_key_path_t* path
 );
 /**
  * Update parameter binded to passed structure.
@@ -501,59 +530,19 @@ extern cfg_param_data_t* cfg_param_get_binded_raw( cfg_descr_t cfg,
  * doing. OK. Now, let's think about particular use case. For instance,
  * we have variable in some language which is binded to particular
  * parameter. Eventually, we will want to change value of this variable.
- * If we use cfg_param_set_raw then it will walk through entire path
- * in the tree from config root. It's a bit expensive. The fact is that
- * structure with data which is returned by cfg_param_get_raw is binded
- * to particular parameter (not duplicate of this structure !!!). We may
- * use it as direct cursor to parameter. So, we may just change its data
- * field and invoke cfg_param_update_raw. If structure isn't binded to
- * any parameter (when it's generated manually or duplicated from
- * original) then routine returns error. Update is performing very
- * efficiently and it's based on pointers reassigning. Additionally
- * you may be interested in synchronising. See cfg_param_hold() for
- * that.
- * @param cfg config descriptor; nothing interesting
- * @param data_str "binded" or "original" data structure
+ * If we use cfg_data_set then it will copy content from passed
+ * structure to original. It's a bit expensive. The fact is that
+ * structure with data which is returned by cfg_data_get is binded
+ * to particular parameter (not duplicate of this structure !!!).
+ * So, we may just change its data field and invoke
+ * cfg_data_update for node. Update is performing very efficiently and
+ * it's based on pointers reassigning.
+ * @param node node which data we want to update or "commit"
  * @return >0 if everything has been done successfully; 0 - otherwise
- * @see cfg_param_get_binded_raw()
+ * @see cfg_data_get()
  * @see cfg_param_data_t
  */
-extern int cfg_param_update_raw( cfg_descr_t cfg,
-    const cfg_param_data_t* data_str
-);
-/**
- * Synchronize on passed binded parameter's structure.
- * This is a way to control access to binded structure on
- * multi-threaded environment. Don't think that you don't need it in
- * single-threaded program because you may imagine situation with
- * remote source of config. It may be, for instance, LDAP server. Quite
- * the same thing as cfg_lock_set() and cfg_lock_reset() but more
- * convinient and faster if you deal with "binded" structure.
- * @param cfg config descriptor
- * @param data_str object of synchronization
- * @param lock_type type of the lock
- * @return >0 if everything is OK, 0 - otherwise
- * @see cfg_param_unlock()
- * @see cfg_lock_type_t
- * @see cfg_param_data_t
- */
-extern int cfg_param_lock( cfg_descr_t cfg,
-    const cfg_param_data_t* data_str,
-    cfg_lock_type_t lock_type
-);
-/**
- * Release lock.
- * This operation releases parameter value locked by cfg_param_lock().
- * For expanded description see its description.
- * @param cfg config descriptor
- * @param data_str object of synchronization
- * @return >0 - OK; 0 - error
- * @see cfg_param_lock()
- * @see cfg_param_get_binded_raw()
- */
-extern int cfg_param_unlock( cfg_descr_t cfg,
-    const cfg_param_data_t* data_str
-);
+extern int cfg_data_update( cfg_node_t node );
 /**
  * Duplicates passed structure deeply.
  * Function creates entire duplicate of passed parameter structure
@@ -561,22 +550,20 @@ extern int cfg_param_unlock( cfg_descr_t cfg,
  * @param cfg config descriptor
  * @param source value which will be cloned
  * @return clone or NULL if error has occured
- * @see cfg_param_get_binded_raw()
- * @see cfg_param_destroy()
+ * @see cfg_data_get()
+ * @see cfg_data_destroy()
  */
-extern cfg_param_data_t* cfg_param_dup( cfg_descr_t cfg,
-    const cfg_param_data_t* source
-);
+extern cfg_param_data_t* cfg_data_dup( const cfg_param_data_t* source );
 /**
  * Utilize cloned value.
  * Recycles clones of "binded" values created by cfg_param_get_raw() and
  * cfg_param_dup().
  * @param clone structure to utilize
  * @return >0 - ok; 0 - error
- * @see cfg_param_get_raw()
- * @see cfg_param_dup()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+ * @see cfg_data_get()
+ * @see cfg_data_dup()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
  */
-extern int cfg_param_destroy( cfg_param_data_t* clone );
+extern int cfg_data_destroy( cfg_param_data_t* clone );
 /**
  * Convinient way to work with library's arrays.
  * This routine serves for array resizing. If size exceeds capacity
@@ -592,55 +579,8 @@ extern int cfg_param_destroy( cfg_param_data_t* clone );
  * @return >0 - ok; 0 - error
  * @see cfg_param_vector_data_t
  */
-extern int cfg_param_resize_array( cfg_param_vector_data_t* data,
+extern int cfg_data_resize_array( cfg_param_vector_data_t* data,
     size_t new_length
-);
-/**
- * Represents iterator.
- * This thing is used in within operations related to iteration through
- * node children. As it has been mentioned before, we have tree-like
- * config structure. Some nodes may have variadic number of subnodes.
- * It may be used to construct hashtables in config. So we have ability
- * to iterate through keys and its values.
- * @see cfg_param_iterator_get()
- * @see cfg_param_iterator_next()
- */
-typedef void* cfg_param_iterator_t;
-/**
- * Creates iterator.
- * Everything is simple - we create iterator for iterating through
- * children of passed subnode.
- * @param cfg config descriptor
- * @param path subnode path
- * @return iterator if everything is fine; NULL - otherwise; iterator
- *         should be utilized via cfg_destroy_desc routine
- * @see cfg_param_iterator_t
- * @see cfg_param_iterator_next()
- */
-extern cfg_param_iterator_t cfg_param_iterator_get( cfg_descr_t cfg,
-    const cfg_key_path_t* path
-);
-/**
- * Get next key-value pair.
- * Get key-value pair of the next child according to passed iterator's
- * position. We can get only key or only value. It depends on what we
- * pass as argument for key and value parameters.
- * @param cfg config descriptor
- * @param iter iterator
- * @param key pointer to variable where pointer to key name will be
- *            stored; if NULL then key name won't be returned
- * @param value pointer to variable where pointer to "binded" parameter
- *              value will be stored; if NULL then key name won't be
- *              returned
- * @return >0 - ok; 0 - otherwise
- * @see cfg_param_iterator_get()
- * @see cfg_param_iterator_t
- * @see cfg_param_get_binded_raw()
- */
-extern int cfg_param_iterator_next( cfg_descr_t cfg,
-    cfg_param_iterator_t iter,
-    const char** key,
-    cfg_param_data_t** value
 );
 /**
  * Returns error code and error message.
