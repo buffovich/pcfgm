@@ -168,17 +168,25 @@ extern cfg_key_path_t* cfg_path_split( const char* path );
  */
 typedef cfg_descriptor_t cfg_node_t;
 /**
- * Represents sub-tree root.
- * Get descriptor of node with specified path.
- * @param cfg source config which contains target subtree
- * @param path to subtree from root; if == NULL then source descriptor
- *             will be returned
+ * Get root node of config.
+ * @param cfg config descriptor
+ * @return root node of config
+ * @see cfg_node_get()
+ */
+extern cfg_node_t cfg_get_root( cfg_t cfg );
+/**
+ * Get node with specified relative path.
+ * Get descriptor of node with specified relative path according to
+ * passed start node.
+ * @param node start point for path walking
+ * @param rel_path relative path to node from specified node;
+ *                 if == NULL then source descriptor will be returned
  * @return descriptor binded to mentioned subtree or (spath == NULL)
- *         source
+ *         source; NULL if error occured
  * @see cfg_destroy()
  */
-extern cfg_node_t cfg_node_get( cfg_t cfg,
-    const cfg_key_path_t* spath
+extern cfg_node_t cfg_node_get( cfg_node_t node,
+    const cfg_key_path_t* rel_path
 );
 /**
  * Get full node path.
