@@ -178,6 +178,7 @@ extern cfg_node_t cfg_get_root( cfg_t cfg );
  * Get node with specified relative path.
  * Get descriptor of node with specified relative path according to
  * passed start node.
+ * @param cfg config dscriptor
  * @param node start point for path walking
  * @param rel_path relative path to node from specified node;
  *                 if == NULL then source descriptor will be returned
@@ -185,7 +186,8 @@ extern cfg_node_t cfg_get_root( cfg_t cfg );
  *         source; NULL if error occured
  * @see cfg_destroy()
  */
-extern cfg_node_t cfg_node_get( cfg_node_t node,
+extern cfg_node_t cfg_node_get( cfg_t cfg,
+    cfg_node_t node,
     const cfg_key_path_t* rel_path
 );
 /**
@@ -361,6 +363,7 @@ typedef int ( *cfg_watcher_t )( cfg_t cfg,
  * Hang change callback on subtree.
  * Set hook for all chenges which may be made with specified subpath
  * (and all of subkeys if we set recursive callback).
+ * @param cfg config descriptor
  * @param subtree start point in config tree for watch
  * @param callback callback routine specified by user
  * @param is_recursive if >0 then callback will be set for all subkeys
@@ -372,7 +375,8 @@ typedef int ( *cfg_watcher_t )( cfg_t cfg,
  * @see cfg_node_get_watcher()
  * @see cfg_node_unwatch()
  */
-extern int cfg_node_watch( cfg_node_t subtree,
+extern int cfg_node_watch( cfg_t cfg,
+    cfg_node_t subtree,
     cfg_watcher_t callback,
     char is_recursive,
     void* tag
@@ -394,6 +398,7 @@ extern cfg_watcher_t cfg_node_get_watcher( cfg_node_t subtree,
  * Reset change callback(s) for specified subtree.
  * Reset change callback set by user for specified subtree. If specified
  * it resets callbacks for entire subtree.
+ * @param cfg config descriptor
  * @param subtree subtree in config where we are going to reset
  *                callback(s)
  * @param is_recursive if >0 then reset will be performed recursively
@@ -402,7 +407,8 @@ extern cfg_watcher_t cfg_node_get_watcher( cfg_node_t subtree,
  * @see cfg_node_get_watcher()
  * @see cfg_node_watch()
  */
-extern int cfg_node_unwatch( cfg_node_t subtree,
+extern int cfg_node_unwatch( cfg_t cfg,
+    cfg_node_t subtree,
     char is_recursive
 );
 /**
@@ -417,6 +423,7 @@ typedef enum _lock_type {
 /**
  * Locks node or subtree.
  * Locks specified key (or path in case if is_recursive >0)
+ * @param cfg config descriptor
  * @param subtree node or subtree we are going to lock
  * @param type type of lock
  * @param is_recursive if >0 then lock will be applied for entire
@@ -424,7 +431,8 @@ typedef enum _lock_type {
  * @return >0 - everything is fine, =0 - otherwise
  * @see cfg_node_unlock()
  */
-extern int cfg_node_lock( cfg_node_t subtree,
+extern int cfg_node_lock( cfg_t cfg,
+    cfg_node_t subtree,
     cfg_lock_type_t type,
     unsigned char is_recursive
 );
@@ -432,13 +440,15 @@ extern int cfg_node_lock( cfg_node_t subtree,
  * Unlocks node or subtree.
  * Remove lock from specified node (or recursively removes locks from
  * nodes in subtree in case if is_recursive >0).
+ * @param cfg config descriptor
  * @param subtree node or subtree we are going to unlock
  * @param is_recursive if >0 then lock will be applied for entire
  *                     subtree, othetwise - just for one key
  * @return >0 - everything is fine, =0 - otherwise
  * @see cfg_node_lock()
  */
-extern int cfg_node_unlock( cfg_node_t subtree,
+extern int cfg_node_unlock( cfg_t cfg,
+    cfg_node_t subtree,
     char is_recursive
 );
 /**
@@ -501,56 +511,42 @@ typedef struct _cfg_param_vector_data {
     size_t length; /**< Array length. */
 } cfg_param_vector_data_t;
 /**
- * Get param data.
- * Gets param data and return pointer to structure which represents it.
- * You should transform it to your type by casting .data field casting
- * yourself. Please, be aware that you get pointer to iternal structure.
- * Use locking or cloning to be thread-safe.
+ * Fetch param data.
+ * Fetch param data to local thread's snapshot and return pointer
+ * to structure which represents data. You should transform it to your
+ * type by casting .data field yourself. Please, be aware that you get
+ * pointer to iternal structure. Use cloning to pass the data between
+ * threads. Passing original data isn't prohibited enterily but you
+ * have been notified.
+ * @param cfg config descriptor
  * @param node node which data we want to get
  * @return pointer to structure represents data; NULL if error is
  *         encountered
- * @see cfg_data_set()
- * @see cfg_data_update()
- * @see cfg_param_data_t
- */
-extern cfg_param_data_t* cfg_data_get( cfg_node_t node );
-/**
- * Set param data.
- * Sets value for particular node. You should check
- * cfg_param_update_raw procedure if you made operations for original
- * structure returned by cfg_data_get.
- * @param node node which data we want to change
- * @param data_str value we want to set for the parameter
- * @return >0 if everything is OK; 0 - otherwise
- * @see cfg_data_get()
- * @see cfg_data_update()
+ * @see cfg_data_commit()
  * @see cfg_data_dup()
  * @see cfg_param_data_t
  */
-extern int cfg_data_set( cfg_node_t path,
-    const cfg_param_data_t* data_str
+extern cfg_param_data_t* cfg_data_checkout( cfg_t cfg,
+    cfg_node_t node
 );
 /**
- * Update parameter binded to passed structure.
- * This is a tricky one. But, please, don't think that trick is a rule
- * for library. I'd like to state that this routine is a way to provide
- * optimized way to operate with parameters if you know what you are
- * doing. OK. Now, let's think about particular use case. For instance,
- * we have variable in some language which is binded to particular
- * parameter. Eventually, we will want to change value of this variable.
- * If we use cfg_data_set then it will copy content from passed
- * structure to original. It's a bit expensive. The fact is that
- * structure with data which is returned by cfg_data_get is binded
- * to particular parameter (not duplicate of this structure !!!).
- * So, we may just change its data field and invoke
- * cfg_data_update for node. Update is performing very efficiently and
- * it's based on pointers reassigning.
- * @param node node which data we want to update or "commit"
- * @return >0 if everything has been done successfully; 0 - otherwise
- * @see cfg_data_get()
+ * Commit param data changes and release thread buffer.
+ * Commits param data changes of particular node and release
+ * thread buffer.
+ * @param cfg config descriptor
+ * @param node node which data we want to change
+ * @param data_str value we want to commit for the parameter; if NULL
+ *                 then current content of thread buffer will be
+ *                 committed
+ * @return >0 if everything is OK; 0 - otherwise
+ * @see cfg_data_checkout()
+ * @see cfg_data_dup()
  * @see cfg_param_data_t
  */
-extern int cfg_data_update( cfg_node_t node );
+extern int cfg_data_commit( cfg_t cfg,
+    cfg_node_t path,
+    const cfg_param_data_t* data_str
+);
 /**
  * Duplicates passed structure deeply.
  * Function creates entire duplicate of passed parameter structure
