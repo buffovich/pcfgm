@@ -1,0 +1,29 @@
+Path selection patterns ( /root/*/access) which can be sources for "virtual trees"
+
+What we shold handle?
+-virtual or surrogate trees (trees or value, calculated on-the-fly without any storage)
+-caching and memoization of virtual trees
+-linking values to each other and linking fragments of trees which mimics concept of mounts in filesystem
+-transactional changes with comments (mimics special tables in SQL DBs we can store transactions in the same configuration tree)
+-handle comments as a part of configuration
+-scripting of handlers for virtual trees or variables
+-access control (possibly would be useful to store attributes with the same interface of configuration as MySQL does)
+
+Look at XPath and XQuery!
+
+Library datamodel regarding basic types follows strictly typed languages:
+there is following decimal types scheme:
+{ signed | unsigned } int[ 8 | 16 | 32 | 64 ]
+there are floating point type:
+float | double
+there are bitfield type:
+bits[ num ] // num == 1 - boolean value
+
+complex types simulated via special things:
+node dictionary adapters:
+hash, -  any regular datatype
+patricia, - strings (default)
+array, - child node names in such node is numbers only
+{ sorted | unsorted } list - 
+
+data scheme is config itself

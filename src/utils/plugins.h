@@ -13,7 +13,16 @@ typedef struct _plugin {
 
 typedef struct _storage_plugin {
     cfg_plugin_t header;
-    cfg_t ( *parse )( const char* uri );
+    cfg_t ( *open )( const char* uri );
+    /*bind node yo memory*/
+    cfg_node_t ( *bind_node )( cfg_t cfg,
+        cfg_node_t parent_node,
+        const char* name
+    );
+    int ( *unbind_node )( cfg_t cfg,
+        cfg_node_t node
+    );
+    int ( *commit )( cfg_t config, cfg_node_t node,  );
     int ( *update )( cfg_t config );
     int ( *save_as )( cfg_t config, const char* uri );
     int ( *close )( cfg_t config );
