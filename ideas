@@ -24,6 +24,19 @@ node dictionary adapters:
 hash, -  any regular datatype
 patricia, - strings (default)
 array, - child node names in such node is numbers only
-{ sorted | unsorted } list - 
+{ sorted | unsorted } list -
+
+pluggable datatype system
+
+config schemas with comments and type definition. variables are allowed. for example:
+
+plugin {
+	name = string;
+	config = subtree( ../plugins/$${./name} )
+}
+
+here is ./name should be string or convertable to string parameter
+$$ means that expansion will be performed during config tree building
+instead of schema itself tree building stage
 
 data scheme is config itself
