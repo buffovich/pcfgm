@@ -40,3 +40,27 @@ $$ means that expansion will be performed during config tree building
 instead of schema itself tree building stage
 
 data scheme is config itself
+What does scheme allow to do? Automatic type conversion from original or
+genuine tree. For example, string "white" for color will be converted into
+1-element blob with element length == 4(bytes)
+
+What blob is:
+
+typedef struct {
+  unsigned int bendian : 1; //  == 1 if saved on big-endian host
+  unsigned int float : 1; // == 1 if is floating point number
+  unsigned int array : 1; // == 1 if blob is array of elements
+  unsigned int bsize : 5; // block size (or size of element in the case of array)
+} header;
+
+typedef struct {
+  header;
+  char data[];
+} scalar;
+
+typedef struct {
+  header;
+  uint32_t length;
+  char data[];
+} vector;
+
