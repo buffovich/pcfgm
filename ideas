@@ -64,3 +64,12 @@ typedef struct {
   char data[];
 } vector;
 
+Tool for test configuration. Again, we need the module for configuration versioning!
+
+Probably, we should have ability to backup and store succesful configurations of system
+in our advanced versioning plugin. Yep, something similar to restore points in
+EvilXP/NT/2000/3000/10000
+
+Run-time configuration editing with mentioned toolbox. Adding/deleting in runtime. Not
+sure about how exactly application should be notified about config change.
+
