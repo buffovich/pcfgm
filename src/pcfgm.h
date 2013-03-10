@@ -78,90 +78,23 @@
  */
  
 /**
- * Get node with specified relative path.
- * Get descriptor of node with specified relative path according to
- * passed start node.
- * @param cfg config dscriptor
- * @param node start point for path walking
- * @param rel_path relative path to node from specified node;
- *                 if == NULL then source descriptor will be returned
- * @return descriptor binded to mentioned subtree or (spath == NULL)
- *         source; NULL if error occured
+ * Opens new session for default config.
+ * Opens new session for config for current application name (argv[0]).
+ * @return config tree descriptor, NULL if error
+ * @see cfg_init_as()
  * @see cfg_destroy()
  */
-extern cfg_node_t cfg_node_get( cfg_t cfg,
-    cfg_node_t node,
-    const cfg_key_path_t* rel_path
-);
+extern cfg_node_t cfg_init( void );
 /**
- * Get full node path.
- * @param node node which path we want to get
- * @return structure describes full path to node including name of node;
- *         should be utilized by user through standard free(); NULL if
- *         error occured
- * @see cfg_node_get()
- * @see cfg_node_get_name()
- * @see cfg_node_get_parent()
+ * Opens new session for config.
+ * Opens new session for config for specified app name.
+ * @param app_id  application name (or ID), default if NULL
+ * @return config tree descriptor, NULL if error
+ * @see cfg_init()
+ * @see cfg_destroy()
  */
-extern cfg_key_path_t* cfg_node_get_path( cfg_node_t node );
-/**
- * Get node name.
- * @param node node which name we want to get
- * @return name of node or NULL if error occured; don't try to free it!
- * @see cfg_node_get()
- * @see cfg_node_get_path()
- * @see cfg_node_get_parent()
- */
-extern const char* cfg_node_get_name( cfg_node_t node );
-/**
- * Get parent node of passed node.
- * @param node which parent we want to get
- * @return parent node of passed node or NULL if error occured
- * @see cfg_node_get()
- * @see cfg_node_get_path()
- * @see cfg_node_get_name()
- */
-extern cfg_node_t cfg_node_get_parent( cfg_node_t node );
-/**
- * Represents iterator.
- * This thing is used in within operations related to iteration through
- * node children. As it has been mentioned before, we have tree-like
- * config structure. Some nodes may have variadic number of subnodes.
- * It may be used to construct hashtables in config. So we have ability
- * to iterate through keys and its values.
- * @see cfg_iterator_get()
- * @see cfg_iterator_next()
- */
-typedef cfg_descriptor_t cfg_iterator_t;
-/**
- * Creates iterator.
- * Everything is simple - we create iterator for iterating through
- * children of passed subnode.
- * @param parent subnode path
- * @return iterator if everything is fine; NULL - otherwise; iterator
- *         should be utilized via cfg_destroy routine
- * @see cfg_iterator_t
- * @see cfg_iterator_next()
- */
-extern cfg_iterator_t cfg_iterator_get( cfg_node_t parent );
-/**
- * Get next key-node pair.
- * Get key-node pair of the next child according to passed iterator's
- * position. We can get only key or only node descriptor. It depends on
- * what we pass as argument for key and node parameters.
- * @param iter iterator
- * @param key pointer to variable where pointer to key name will be
- *            stored; if NULL then key name won't be returned
- * @param node pointer to variable where node descriptor will be
- *             stored; if NULL then node won't be returned
- * @return >0 - ok; 0 - otherwise
- * @see cfg_iterator_get()
- * @see cfg_iterator_t
- */
-extern int cfg_iterator_next( cfg_iterator_t iter,
-    const char** key,
-    cfg_node_t* node
-);
+extern cfg_node_t cfg_init_as( const char* app_id );
+
 /**
  * Get current state as new config.
  * Get thing which descripts current config state for specified subtree.

@@ -39,6 +39,12 @@ here is ./name should be string or convertable to string parameter
 $$ means that expansion will be performed during config tree building
 instead of schema itself tree building stage
 
+${./name} - insert mentioned node value into position at first stage
+$${./name} - the same but at the sacond stage.
+$[n]{./name} - at the n-th stage
+
+Plugin for variable expansion.
+
 data scheme is config itself
 What does scheme allow to do? Automatic type conversion from original or
 genuine tree. For example, string "white" for color will be converted into
@@ -73,3 +79,33 @@ EvilXP/NT/2000/3000/10000
 Run-time configuration editing with mentioned toolbox. Adding/deleting in runtime. Not
 sure about how exactly application should be notified about config change.
 
+Module mounter - mount different part of tree to new position.
+Module lazy builder - ping underlaid sub-tree module only when accessed
+Module cacher - cache config into provided sub-tree of global namespace
+Module engine::shm - stores result into shared memory segments; may be useful with cacher
+
+Don't forget about config-selection globbing with XPath like expressions. We should have
+an ability to build virtual subtree from real one with help of XPath-like expression.
+
+Idea of "layers" of configuration. Actually, tree might be represented as 3d construction
+where Z-coordinate is responsible for concrete layer of configuration. Layers are combined
+according to their priority to d[it out resulting configuration tree.
+Example of layers:
+-hardware - configuration tree for particular hardware platform
+-system - conf tree for particular OS installation
+-user - conf tree related to loggged-in user.
+...
+Application can have self-defined configuration layers.
+Layers are being applied as series of pathes. Resulting tree might obtain
+on of its values from one level and another value from another. Values can
+interfere with each other. I think word priority in this area would be
+sufficient but I'm not sure. Separate plugin should be provided for such
+kind of feature.
+
+Allow in scheme plugin units of measurement.
+
+Plugin-calculator which allows to perform calculations during config read. Kind
+of setter-getter virtual variable.
+
+We should discuss cyclic graph problem in the case of dependency in tree's
+members computation.
