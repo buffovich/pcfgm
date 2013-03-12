@@ -52,23 +52,74 @@ genuine tree. For example, string "white" for color will be converted into
 
 What blob is:
 
+/*
+ * TODO: consider cash thrashing. Try to maintain spatial locality! Try to
+ * use arrays instead of lists or place list nodes near each other.
+ */
+ 
 typedef struct {
-  unsigned int bendian : 1; //  == 1 if saved on big-endian host
-  unsigned int float : 1; // == 1 if is floating point number
-  unsigned int array : 1; // == 1 if blob is array of elements
-  unsigned int bsize : 5; // block size (or size of element in the case of array)
-} header;
+	uint32_t length;
+	char data[];
+} data_t;
+
+//  == 1 if saved on big-endian host
+#define BLOB_BIG_ENDIAN 256
+// == 1 if is floating point number
+#define BLOB_FLOAT 512
+// == 1 if blob is array of elements
+#define BLOB_ARRAY 1024
+// block size (or size of element in the case of array)
+#define BLOB_LENGTH_MASK 255
 
 typedef struct {
-  header;
-  char data[];
-} scalar;
+	int options;
+	
+	union {
+		char value[];
+		data_t data;
+	};
+} blob;
+
+#define NODE_VIRTUAL 1
+typedef struct {
+	int options;
+
+	node_class *class;
+	union {
+		blob value;
+		data_t instance;
+	}
+} node;
+
+Methods:
+#define CLASS_HAS_get_iter_succ 1
+#define CLASS_HAS_get_iter_pred 2
+#define CLASS_HAS_get_succ 4
+#define CLASS_HAS_get_pred 8
+#define CLASS_HAS_add_succ 16
+#define CLASS_HAS_add_pred 32
+#define CLASS_HAS_del_succ 64
+#define CLASS_HAS_del_pred 128
+#define CLASS_HAS_get_value 256
+#define CLASS_HAS_set_value 512
+#define CLASS_HAS_destroy 1024
+
+typedef int (*get_iter_succ_m)();
+typedef int (*get_iter_pred_m)();
+typedef int (*get_succ_m)();
+typedef int (*get_pred_m)();
+typedef int (*add_succ_m)();
+typedef int (*add_pred_m)();
+typedef int (*del_succ_m)();
+typedef int (*del_pred_m)();
+typedef int (*get_value_m)();
+typedef int (*set_value_m)();
+typedef int (*destroy_m)();
 
 typedef struct {
-  header;
-  uint32_t length;
-  char data[];
-} vector;
+	int mset;
+	void* methods[];
+}
 
 Tool for test configuration. Again, we need the module for configuration versioning!
 
@@ -109,3 +160,6 @@ of setter-getter virtual variable.
 
 We should discuss cyclic graph problem in the case of dependency in tree's
 members computation.
+
+Implement elementary caching inside graph node itself. Therefore, implement
+virtual methods table pointer to enable pluggable behavior.
