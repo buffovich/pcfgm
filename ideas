@@ -50,77 +50,6 @@ What does scheme allow to do? Automatic type conversion from original or
 genuine tree. For example, string "white" for color will be converted into
 1-element blob with element length == 4(bytes)
 
-What blob is:
-
-/*
- * TODO: consider cash thrashing. Try to maintain spatial locality! Try to
- * use arrays instead of lists or place list nodes near each other.
- */
- 
-typedef struct {
-	uint32_t length;
-	char data[];
-} data_t;
-
-//  == 1 if saved on big-endian host
-#define BLOB_BIG_ENDIAN 256
-// == 1 if is floating point number
-#define BLOB_FLOAT 512
-// == 1 if blob is array of elements
-#define BLOB_ARRAY 1024
-// block size (or size of element in the case of array)
-#define BLOB_LENGTH_MASK 255
-
-typedef struct {
-	int options;
-	
-	union {
-		char value[];
-		data_t data;
-	};
-} blob;
-
-#define NODE_VIRTUAL 1
-typedef struct {
-	int options;
-
-	node_class *class;
-	union {
-		blob value;
-		data_t instance;
-	}
-} node;
-
-Methods:
-#define CLASS_HAS_get_iter_succ 1
-#define CLASS_HAS_get_iter_pred 2
-#define CLASS_HAS_get_succ 4
-#define CLASS_HAS_get_pred 8
-#define CLASS_HAS_add_succ 16
-#define CLASS_HAS_add_pred 32
-#define CLASS_HAS_del_succ 64
-#define CLASS_HAS_del_pred 128
-#define CLASS_HAS_get_value 256
-#define CLASS_HAS_set_value 512
-#define CLASS_HAS_destroy 1024
-
-typedef int (*get_iter_succ_m)();
-typedef int (*get_iter_pred_m)();
-typedef int (*get_succ_m)();
-typedef int (*get_pred_m)();
-typedef int (*add_succ_m)();
-typedef int (*add_pred_m)();
-typedef int (*del_succ_m)();
-typedef int (*del_pred_m)();
-typedef int (*get_value_m)();
-typedef int (*set_value_m)();
-typedef int (*destroy_m)();
-
-typedef struct {
-	int mset;
-	void* methods[];
-}
-
 Tool for test configuration. Again, we need the module for configuration versioning!
 
 Probably, we should have ability to backup and store succesful configurations of system
@@ -163,3 +92,24 @@ members computation.
 
 Implement elementary caching inside graph node itself. Therefore, implement
 virtual methods table pointer to enable pluggable behavior.
+
+Snippets:
+
+/**
+ * backw_path should be treated as: name_in_parent/name_of_parent_at_gparent
+ */
+extern cfg_node_t cfg_node_pred( cfg_node_t cur,
+    const char* backw_path
+);
+
+extern cfg_iter_t cfg_iterator_pred( cfg_node_t parent );
+
+typedef int ( *get_pred_m )();
+typedef int ( *get_iter_pred_m )();
+typedef int ( *add_pred_m )( node_t *node, blob_t *name, node_t *pred );
+typedef int ( *del_pred_m )();
+
+#define CLASS_HAS_GET_ITER_PRED 2
+#define CLASS_HAS_GET_PRED 8
+#define CLASS_HAS_ADD_PRED 32
+#define CLASS_HAS_DEL_PRED 128

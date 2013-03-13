@@ -17,13 +17,6 @@ extern cfg_node_t cfg_node_succ( cfg_node_t cur,
 );
 
 /**
- * backw_path should be treated as: name_in_parent/name_of_parent_at_gparent
- */
-extern cfg_node_t cfg_node_pred( cfg_node_t cur,
-    const char* backw_path
-);
-
-/**
  * Get parent node of passed node.
  * @param node which parent we want to get
  * @return parent node of passed node or NULL if error occured
@@ -32,17 +25,6 @@ extern cfg_node_t cfg_node_pred( cfg_node_t cur,
  * @see cfg_node_get_name()
  */
 extern cfg_node_t cfg_node_get_parent( cfg_node_t node );
-/**
- * Represents iterator.
- * This thing is used in within operations related to iteration through
- * node children. As it has been mentioned before, we have tree-like
- * config structure. Some nodes may have variadic number of subnodes.
- * It may be used to construct hashtables in config. So we have ability
- * to iterate through keys and its values.
- * @see cfg_iterator_get()
- * @see cfg_iterator_next()
- */
-typedef void* cfg_iter_t;
 
 /**
  * Creates iterator.
@@ -54,8 +36,6 @@ typedef void* cfg_iter_t;
  * @see cfg_iterator_t
  * @see cfg_iterator_next()
  */
-extern cfg_iter_t cfg_iterator_pred( cfg_node_t parent );
-
 extern cfg_iter_t cfg_iterator_succ( cfg_node_t parent );
 
 /**
