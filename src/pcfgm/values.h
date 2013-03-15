@@ -1,3 +1,5 @@
+/* Operations with node itself */
+
 extern int cfg_value_set( cfg_node_t node,
 	blob_t *value
 );
