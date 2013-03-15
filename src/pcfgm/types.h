@@ -32,7 +32,7 @@ typedef void* cfg_iter_t;
 
 typedef struct {
 	uint32_t length;
-	char data[];
+	uint8_t data[];
 } data_t;
 
 //  == 1 if saved on big-endian host
@@ -41,22 +41,24 @@ typedef struct {
 #define BLOB_FLOAT 512
 // == 1 if blob is array of elements
 #define BLOB_ARRAY 1024
+// == 1 if blob is allocated dynamically, for example
+// == 0 if blob came from mapping, for example
+#define BLOB_PRIVATE 2048
 // block size (or size of element in the case of array)
 #define BLOB_LENGTH_MASK 255
 
 typedef struct {
-	int options;
+	uint16_t options;
 	
 	union {
-		char value[];
+		uint8_t value[];
 		data_t data;
 	};
 } blob_t;
 
 typedef struct {
-	mixin_t *next;
 	method_table_t *vtable; // mixin's methods table
-	data_t instance; // mixin's part of run-time data
+	data_t *instance; // mixin's part of run-time data
 } mixin_t;
 
 /*
@@ -64,65 +66,61 @@ typedef struct {
  * node struct is not very mathematically perfect because there is the special
  * case of "non-virtual" node. Non-virtual node is handled by iternal framework
  * getters and setters. There is no need to scan methods table. It will work
- * faster than vrtual node. Faster means better for config.
+ * faster than virtual node. Faster means better for config.
  */
 
-#define NODE_VIRTUAL 1
+#define NODE_EMPTY 1
 typedef struct {
-	int options;
+	unsigned int options;
 
-	node_t parent;
+	node_t *parent;
 	int ref_count;
 
 	/*
-	 * Here is next "part" of node. The fact is that node is a instance of
-	 * private class constructed on-the-fly. Class is a stack of "mixins".
-	 * Each mixin desires to have their one private instance data in resulting
-	 * object. And each node part is responsible for information for
-	 * particular mixin.
+	 * Stack on top off dynamic array for mixins.
 	 */
-	mixin_t *head;
-	
-	union {
-		blob_t value; // if not virtual
-		mixin_t mixin; // virtual
-	}
+	mixin_t **head;
+	blob_t *value; // if not empty
 } node_t;
 
 // Methods:
-#define CLASS_HAS_GET_ITER_SUCC 1
-#define CLASS_HAS_GET_SUCC 4
-#define CLASS_HAS_ADD_SUCC 16
-#define CLASS_HAS_DEL_SUCC 64
+#define CLASS_HAS_GET_ITER 1
+#define CLASS_HAS_GET_NODE 4
+#define CLASS_HAS_ADD_NODE 16
+#define CLASS_HAS_DEL_NODE 64
 
 #define CLASS_HAS_GET_VALUE 256
 #define CLASS_HAS_SET_VALUE 512
 
 #define CLASS_HAS_DESTROY 1024
 
-typedef node_t* ( *get_succ_m )( mixin_t *self, node_t *node, blob_t *name );
-
-typedef int ( *add_succ_m )( mixin_t *self,
+typedef node_t* ( *get_node_m )( int mindex,
 	node_t *node,
-	blob_t *name,
-	node_t *succ
+	const char *name
 );
 
-typedef int ( *del_succ_m )( mixin_t *self, node_t *node, blob_t *name );
+typedef int ( *add_node_m )( int mindex,
+	node_t *node,
+	const char *name,
+	node_t *what
+);
 
-typedef cfg_iter_t ( *get_iter_succ_m )( mixin_t *self, node_t *node );
+typedef int ( *del_node_m )( int mindex, node_t *node, const char *name );
 
-typedef int ( *get_value_m )( mixin_t *self, node_t *node );
-typedef int ( *set_value_m )( mixin_t *self, node_t *node, blob_t *value );
+typedef cfg_iter_t ( *get_iter_m )( int mindex, node_t *node );
 
-typedef int ( *destroy_m )( mixin_t *self, node_t *node );
+typedef int ( *get_value_m )( int mindex, node_t *node, blob_t *value );
+typedef int ( *set_value_m )( int mindex, node_t *node, blob_t *value );
+typedef int ( *link_value_m )( int mindex, node_t *node, blob_t *value );
+
+typedef int ( *destroy_m )( int mindex, node_t *node );
 
 typedef struct {
 	/*
 	 * Particular mixin may desire to override their predecessor's methods
 	 * just partially. It's set describes which methods are overriden.
 	 */
-	int mset;
+	unsigned int mset;
 	/*
 	 * Array of methods. They go according to mset and sequential number of
 	 * bit.

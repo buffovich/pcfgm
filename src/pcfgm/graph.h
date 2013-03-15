@@ -12,8 +12,12 @@
  *         source; NULL if error occured
  * @see cfg_destroy()
  */
-extern cfg_node_t cfg_node_succ( cfg_node_t cur,
-    const char* forw_path
+extern cfg_node_t cfg_node_get( cfg_node_t cur,
+    const char* path
+);
+
+extern cfg_node_t cfg_node_add( cfg_node_t cur,
+    const char* name
 );
 
 /**
@@ -36,7 +40,7 @@ extern cfg_node_t cfg_node_get_parent( cfg_node_t node );
  * @see cfg_iterator_t
  * @see cfg_iterator_next()
  */
-extern cfg_iter_t cfg_iterator_succ( cfg_node_t parent );
+extern cfg_iter_t cfg_node_iterator( cfg_node_t parent );
 
 /**
  * Get next key-node pair.
