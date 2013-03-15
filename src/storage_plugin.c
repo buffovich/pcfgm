@@ -13,7 +13,7 @@ void* init( node_t *plugin_cfg ) {
 
 static void *_process_subtree( void *cur_ptr, node_t *pred, int num_succ ) {
 	node_t n = cfg_node_add( pred, name );
-	for_process_subtree
+	for ( _process_subtree
 	cfg_mixin_add( pred, CAST( inst )->singleton );
 }
 
