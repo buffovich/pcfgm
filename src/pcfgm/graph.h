@@ -17,7 +17,26 @@ extern cfg_node_t cfg_node_get( cfg_node_t cur,
 );
 
 extern cfg_node_t cfg_node_add( cfg_node_t cur,
+	cfg_node_t what,
     const char* name
+);
+
+extern cfg_node_create( cfg_node_t primary,
+	const char* name,
+	unsigned int options
+);
+
+extern cfg_node_t cfg_node_del( cfg_node_t cur,
+    const char* name
+);
+
+/*
+ * TODO: I know. It's ugly name. But what would you suggest? And it's
+ * convenient and fast way to alert underlying plugin about particular
+ * number of nodes we're going to add just after that.
+ */
+extern cfg_node_t cfg_node_advise_for_number_of_children( cfg_node_t node,
+	unsigned int will_have_in_addition
 );
 
 /**

@@ -41,14 +41,15 @@ typedef struct {
 #define BLOB_FLOAT 512
 // == 1 if blob is array of elements
 #define BLOB_ARRAY 1024
-// == 1 if blob is allocated dynamically, for example
-// == 0 if blob came from mapping, for example
-#define BLOB_PRIVATE 2048
+// == 0 if blob is allocated dynamically, for example
+// == 1 if blob came from mapping, for example
+#define BLOB_SHARED 2048
 // block size (or size of element in the case of array)
 #define BLOB_LENGTH_MASK 255
 
 typedef struct {
-	uint16_t options;
+	uint32_t options; // I placed uint32_t to deal with alignment because
+					// data.length has uint32_t
 	
 	union {
 		uint8_t value[];
@@ -105,13 +106,25 @@ typedef int ( *add_node_m )( int mindex,
 	node_t *what
 );
 
+/*
+ * For "primary" parent of node
+ */
+typedef int ( *create_node_m )( int mindex,
+	node_t *node,
+	unsigned int options
+);
+
 typedef int ( *del_node_m )( int mindex, node_t *node, const char *name );
+
+/*
+ * For advice from high-level routines about number of nodes p;anned for adding
+ */
+typedef int ( *accept_advice_m )( int mindex, node_t *node, blob_t *value );
 
 typedef cfg_iter_t ( *get_iter_m )( int mindex, node_t *node );
 
 typedef int ( *get_value_m )( int mindex, node_t *node, blob_t *value );
 typedef int ( *set_value_m )( int mindex, node_t *node, blob_t *value );
-typedef int ( *link_value_m )( int mindex, node_t *node, blob_t *value );
 
 typedef int ( *destroy_m )( int mindex, node_t *node );
 
