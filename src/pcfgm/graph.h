@@ -1,5 +1,10 @@
 #include <pcfgm/types.h>
 
+/*
+ * TODO: separate what is needed and should be visible for lib user and what
+ * is needed for iternal mechanics.
+ */
+
 /**
  * Get node with specified relative path.
  * Get descriptor of node with specified relative path according to
@@ -29,6 +34,12 @@ extern cfg_node_create( cfg_node_t primary,
 extern cfg_node_t cfg_node_del( cfg_node_t cur,
     const char* name
 );
+
+/* Two methods for playing with reference count */
+
+extern int cfg_node_mark( cfg_node_t what );
+
+extern int cfg_node_unmark( cfg_node_t what );
 
 /*
  * TODO: I know. It's ugly name. But what would you suggest? And it's

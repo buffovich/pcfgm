@@ -8,8 +8,18 @@ typedef struct {
 	};
 } node_pointer_t;
 
+static inline node_t* __get_node( node_t *cur, node_pointer_t *nptr ) {
+	return cfg_node_mark(
+		( nptr->options & SOFT_LINK ) ?
+			cfg_node_get( cur, nptr->path ) :
+			nptr->ptr
+	);
+}
+
 /* Implementation of dumb proxy methods as it's needed for symlink */
-static node_t* _get_node( int mindex, node_t *node, const char *name ) {
+static int _get_node( int mindex, node_t *node, const char *name,
+	node_t **ret
+) {
 }
 
 static int _add_node( int mindex, node_t *node, const char *name,
@@ -26,7 +36,7 @@ static int _del_node( int mindex, node_t *node, const char *name ) {
 static int _accept_advice( int mindex, node_t *node, blob_t *value ) {
 }
 
-static cfg_iter_t _get_iter( int mindex, node_t *node ) {
+static int _get_iter( int mindex, node_t *node, cfg_iter_t *ret ) {
 }
 
 static int _get_value( int mindex, node_t *node, blob_t *value ) {

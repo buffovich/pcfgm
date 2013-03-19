@@ -99,9 +99,18 @@ typedef enum {
 
 #define METHODS_NUM 9
 
-typedef node_t* ( *get_node_m )( int mindex,
+/*
+ * Here don't be confused why each method returns int instead of what it should
+ * return according to logic. It's all about mixin inheritance and methods
+ * chaining. If return value is non-zero then request is handled already and
+ * nothing should be done further. Framework will continue to invoke methods
+ * if zero.
+ */
+
+typedef int ( *get_node_m )( int mindex,
 	node_t *node,
-	const char *name
+	const char *name,
+	node_t **ret
 );
 
 typedef int ( *add_node_m )( int mindex,
@@ -125,7 +134,7 @@ typedef int ( *del_node_m )( int mindex, node_t *node, const char *name );
  */
 typedef int ( *accept_advice_m )( int mindex, node_t *node, blob_t *value );
 
-typedef cfg_iter_t ( *get_iter_m )( int mindex, node_t *node );
+typedef int ( *get_iter_m )( int mindex, node_t *node, cfg_iter_t *iter );
 
 typedef int ( *get_value_m )( int mindex, node_t *node, blob_t *value );
 typedef int ( *set_value_m )( int mindex, node_t *node, blob_t *value );
