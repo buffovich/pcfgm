@@ -1,34 +1,32 @@
-/*
- * Format:
- * TODO: handle endian issues
- * < options:uint32_t >
- *   node
- *   [ nodes ]
- * node:
- *   < child_num: uint32_t > // alignment - 4 bytes
- *   < blob_t > // alignment - 4 bytes
- *   < names_length: uint32_t > // alignment issues should be taken in account
- *   < char *name > [ < char *name > ... ] // must be padded with extra zeroes
- */
 typedef struct {
-	mixin_t *singleton;
 	int fdesc;
 	off_t fsize;
 	void *mapping;
 } bin_storage_t;
 
-#define CAST( v ) ( ( bin_storage_t* ) ( v ) )
+methods_table_t _G_methods = {
+	[ DESTROY ] = _destroy_config
+};
+
+static _destroy_config( int mindex, node_t *node ) {
+	mixin_t *m = node->head[ mindex ];
+	bin_storage_t *bs = ( bin_storage_t* ) &( m->instance.data );
+	munmap( bs->mapping, bs->fsize );
+	close( bs->fdesc );
+}
+
 /*
  * Yes, plugin config is graph too. Mathematically clear.
  * Returns instance of particular initialization.
  */
-void* init( node_t *plugin_cfg ) {
+void* new( node_t *plugin_cfg ) {
 	blob_t *v = cfg_value_get( plugin_cfg );
 	//TODO: handle case when value is absent
 	char *fname = cfg_value_to( v, "cstr" );
 	//TODO: handle case when cast is failed
 
-	bin_storage_t *inst = ( bin_storage_t *) malloc( sizeof( bin_storage_t ) );
+	mixin_t *m = cfg_mixin_alloc( _G_methods, sizeof( bin_storage_t ), 0 );
+	bin_storage_t *inst = ( bin_storage_t *) &( m->instance.data );
 	
 	inst->fdesc = open( fname, O_RDONLY );
 	//TODO: handle case when file can't be opened
@@ -41,14 +39,27 @@ void* init( node_t *plugin_cfg ) {
 		inst->fdesc, 0
 	);
 
-	return inst;
+	return m;
 }
+
+/*
+ * Format:
+ * TODO: handle endian issues
+ * < options:uint32_t >
+ *   node
+ *   [ nodes ]
+ * node:
+ *   < child_num: uint32_t > // alignment - 4 bytes
+ *   < blob_t > // alignment - 4 bytes
+ *   < names_length: uint32_t > // alignment issues should be taken in account
+ *   < char *name > [ < char *name > ... ] // must be padded with extra zeroes
+ */
 
 static void *_process_subtree( char *cur_ptr, node_t *n ) {
 	uint32_t cnum = *( ( uint32_t* ) cur_ptr );
 	cur_ptr += sizeof( uint32_t );
 	// OK. If you don't like this ugly name - "advise" me another option
-	cfg_node_advise_for_number_of_children( n, cnum );
+	cfg_node_advise_capacity( n, cnum );
 
 	// postpone set value until intire subtree will be ready
 	// it makes sense when you have some underlying modules which
@@ -77,6 +88,8 @@ static void *_process_subtree( char *cur_ptr, node_t *n ) {
 	/* to protect ourselves from false change detection through mixin hooks
 	 * TODO: there is no need to provide any hooks on read-only tree
 	 * review this part when there will be a need to write configs
+	 * OBSOLETE: since we use mixin in root node to store information about
+	 * underlying file and mapping
 	 */
 	// cfg_mixin_add( n, CAST( inst )->singleton );
 	
@@ -86,15 +99,15 @@ static void *_process_subtree( char *cur_ptr, node_t *n ) {
 /*
  * You should pass start node here. Node should be allocated already
  */
-int on_include( void *inst, node_t *root ) {
-	uint32_t ptr = ( uint32_t * ) CAST( inst )->mapping;
+int on_include( void *m, node_t *root ) {
+	bin_storage_t *inst = ( bin_storage_t* ) &(
+		( ( mixin_t* ) m )->instance.data
+	);
+	
+	uint32_t ptr = ( uint32_t* ) inst->mapping;
 	uint32_t options = ( *ptr );
 	
 	_process_subtree( ptr + 1, root );
-}
 
-int close( void *inst ) {
-	munmap( CAST( inst )->mapping, CAST( inst )->fsize );
-	close( CAST( inst )->fdesc );
-	free( inst );
+	cfg_mixin_add( root, ( mixin_t* ) m );
 }

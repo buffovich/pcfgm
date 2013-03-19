@@ -52,7 +52,7 @@ typedef struct {
 					// data.length has uint32_t
 	
 	union {
-		uint8_t value[];
+		uint8_t value[ 1 ];
 		data_t data;
 	};
 } blob_t;
@@ -97,6 +97,8 @@ typedef enum {
 	DESTROY
 } method_t;
 
+#define METHODS_NUM 9
+
 typedef node_t* ( *get_node_m )( int mindex,
 	node_t *node,
 	const char *name
@@ -133,4 +135,4 @@ typedef int ( *destroy_m )( int mindex, node_t *node );
 /*
  * Array of methods. See method_t
  */
-typedef void* methods_table_t[];
+typedef void* methods_table_t[ METHODS_NUM ];

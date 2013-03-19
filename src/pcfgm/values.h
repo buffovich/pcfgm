@@ -17,14 +17,15 @@ extern int cfg_blob_free( blob_t *b );
 #define cfg_value_to( blob, type )
 
 
-extern mixin_t *cfg_mixin_alloc( method_table_t *methods
-	size_t idata_len
+extern mixin_t *cfg_mixin_alloc( method_table_t *methods,
+	size_t idata_len,
+	size_t data_align
 );
 
-extern int cfg_mixin_add( node_t *node,
-	mixin_t *mixin
-)
+extern int cfg_mixin_realloc( mixin_t *m, size_t idata_len );
 
-extern int cfg_mixin_del( node_t *node,
-	int num
-)
+extern int cfg_mixin_free( mixin_t *m );
+
+extern int cfg_mixin_add( node_t *node, mixin_t *mixin );
+
+extern int cfg_mixin_del( node_t *node, int num );

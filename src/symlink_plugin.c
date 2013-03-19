@@ -1,5 +1,11 @@
+#define SOFT_LINK 1
+
 typedef struct {
-	mixin_t *singleton;
+	unsigned int options;
+	union {
+		node_t *ptr;
+		char path[ 1 ];
+	};
 } node_pointer_t;
 
 /* Implementation of dumb proxy methods as it's needed for symlink */

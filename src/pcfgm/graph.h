@@ -35,7 +35,7 @@ extern cfg_node_t cfg_node_del( cfg_node_t cur,
  * convenient and fast way to alert underlying plugin about particular
  * number of nodes we're going to add just after that.
  */
-extern cfg_node_t cfg_node_advise_for_number_of_children( cfg_node_t node,
+extern cfg_node_t cfg_node_advise_capacity( cfg_node_t node,
 	unsigned int will_have_in_addition
 );
 
