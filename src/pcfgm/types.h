@@ -58,7 +58,7 @@ typedef struct {
 } blob_t;
 
 typedef struct {
-	method_table_t *vtable; // mixin's methods table
+	methods_table_t *vtable; // mixin's methods table
 	data_t *instance; // mixin's part of run-time data
 } mixin_t;
 
@@ -85,15 +85,17 @@ typedef struct {
 } node_t;
 
 // Methods:
-#define CLASS_HAS_GET_ITER 1
-#define CLASS_HAS_GET_NODE 4
-#define CLASS_HAS_ADD_NODE 16
-#define CLASS_HAS_DEL_NODE 64
-
-#define CLASS_HAS_GET_VALUE 256
-#define CLASS_HAS_SET_VALUE 512
-
-#define CLASS_HAS_DESTROY 1024
+typedef enum {
+	GET_ITER = 0,
+	GET_NODE,
+	ADD_NODE,
+	CREATE_NODE,
+	DEL_NODE,
+	ACCEPT_ADVICE,
+	GET_VALUE,
+	SET_VALUE,
+	DESTROY
+} method_t;
 
 typedef node_t* ( *get_node_m )( int mindex,
 	node_t *node,
@@ -128,15 +130,7 @@ typedef int ( *set_value_m )( int mindex, node_t *node, blob_t *value );
 
 typedef int ( *destroy_m )( int mindex, node_t *node );
 
-typedef struct {
-	/*
-	 * Particular mixin may desire to override their predecessor's methods
-	 * just partially. It's set describes which methods are overriden.
-	 */
-	unsigned int mset;
-	/*
-	 * Array of methods. They go according to mset and sequential number of
-	 * bit.
-	 */
-	void* methods[];
-} method_table_t;
+/*
+ * Array of methods. See method_t
+ */
+typedef void* methods_table_t[];

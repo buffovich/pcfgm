@@ -49,9 +49,11 @@ static void *_process_subtree( char *cur_ptr, node_t *n ) {
 	cur_ptr += sizeof( uint32_t );
 	// OK. If you don't like this ugly name - "advise" me another option
 	cfg_node_advise_for_number_of_children( n, cnum );
-	
+
+	// postpone set value until intire subtree will be ready
+	// it makes sense when you have some underlying modules which
+	// placed a hooks on set/get value
 	blob_t *datap = ( blob_t* ) cur_ptr;
-	cfg_value_set( n, datap );
 	
 	size_t blob_size = ( datap->options & BLOB_LENGTH_MASK ) *
 		( ( datap->options & BLOB_ARRAY ) ? datap->data.length : 1 ) +
@@ -70,7 +72,13 @@ static void *_process_subtree( char *cur_ptr, node_t *n ) {
 		cur_ptr += strlen( cur_ptr ) + 1;
 	}
 
-	cfg_mixin_add( n, CAST( inst )->singleton );
+	cfg_value_set( n, datap );
+	
+	/* to protect ourselves from false change detection through mixin hooks
+	 * TODO: there is no need to provide any hooks on read-only tree
+	 * review this part when there will be a need to write configs
+	 */
+	// cfg_mixin_add( n, CAST( inst )->singleton );
 	
 	return c;
 }
