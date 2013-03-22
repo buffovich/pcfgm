@@ -8,7 +8,7 @@ methods_table_t _G_methods = {
 	[ DESTROY ] = _destroy_config
 };
 
-static _destroy_config( int mindex, node_t *node ) {
+static _destroy_config( int mindex, node_t *node, va_list p ) {
 	mixin_t *m = node->head[ mindex ];
 	bin_storage_t *bs = ( bin_storage_t* ) &( m->instance.data );
 	munmap( bs->mapping, bs->fsize );

@@ -86,62 +86,61 @@ typedef struct {
 
 // Methods:
 typedef enum {
+	/*
+	 * Third parameter - cfg_iter_t *iter
+	 */
 	GET_ITER = 0,
+	/*
+	 * Third parameter - const char *name
+	 * Forth parameter - node_t **ret
+	 */
 	GET_NODE,
+	/*
+	 * Third parameter - const char *name
+	 * Forth parameter - node_t *what
+	 */
 	ADD_NODE,
+	/*
+	 * For "primary" parent of node
+	 * Third parameter - unsigned int options
+	 * Forth parameter - node_t **node
+	 */
 	CREATE_NODE,
+	/*
+	 * Third parameter - const char *name
+	 */
 	DEL_NODE,
+	/*
+	 * For advice from high-level routines about number of nodes
+	 * planned for adding
+	 * Third parameter - size_t num
+	 */
 	ACCEPT_ADVICE,
+	/*
+	 * Third value - blob_t *value
+	 */
 	GET_VALUE,
+	/*
+	 * Third value - blob_t *value
+	 */
 	SET_VALUE,
+	/*
+	 * No extra parameters
+	 */
 	DESTROY
-} method_t;
+} method_id_t;
 
 #define METHODS_NUM 9
 
 /*
- * Here don't be confused why each method returns int instead of what it should
- * return according to logic. It's all about mixin inheritance and methods
- * chaining. If return value is non-zero then request is handled already and
- * nothing should be done further. Framework will continue to invoke methods
- * if zero.
+ * Universal template for all methods.
  */
 
-typedef int ( *get_node_m )( int mindex,
-	node_t *node,
-	const char *name,
-	node_t **ret
-);
+typedef int ( *method_t )( int mindex, node_t *node, va_list args );
 
-typedef int ( *add_node_m )( int mindex,
-	node_t *node,
-	const char *name,
-	node_t *what
-);
-
-/*
- * For "primary" parent of node
- */
-typedef int ( *create_node_m )( int mindex,
-	node_t *node,
-	unsigned int options
-);
-
-typedef int ( *del_node_m )( int mindex, node_t *node, const char *name );
-
-/*
- * For advice from high-level routines about number of nodes p;anned for adding
- */
-typedef int ( *accept_advice_m )( int mindex, node_t *node, blob_t *value );
-
-typedef int ( *get_iter_m )( int mindex, node_t *node, cfg_iter_t *iter );
-
-typedef int ( *get_value_m )( int mindex, node_t *node, blob_t *value );
-typedef int ( *set_value_m )( int mindex, node_t *node, blob_t *value );
-
-typedef int ( *destroy_m )( int mindex, node_t *node );
+extern int _cfg_invoke_next( int mindex, node_t *node, method_id_t m, ... );
 
 /*
  * Array of methods. See method_t
  */
-typedef void* methods_table_t[ METHODS_NUM ];
+typedef method_t methods_table_t[ METHODS_NUM ];
