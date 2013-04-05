@@ -21,15 +21,16 @@ extern cfg_node_t cfg_node_get( cfg_node_t cur,
     const char* path
 );
 
-extern cfg_node_t cfg_node_add( cfg_node_t cur,
+extern cfg_node_t cfg_node_link( cfg_node_t cur,
 	cfg_node_t what,
     const char* name
 );
 
-extern cfg_node_create( cfg_node_t primary,
+extern cfg_node_t cfg_node_create( cfg_node_t primary,
 	const char* name,
-	unsigned int options
 );
+
+extern cfg_node_t cfg_node_produce( cfg_node_t parent );
 
 extern cfg_node_t cfg_node_del( cfg_node_t cur,
     const char* name

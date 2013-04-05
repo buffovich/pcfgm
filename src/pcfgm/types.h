@@ -70,10 +70,7 @@ typedef struct {
  * faster than virtual node. Faster means better for config.
  */
 
-#define NODE_EMPTY 1
 typedef struct {
-	unsigned int options;
-
 	node_t *parent;
 	int ref_count;
 
@@ -81,7 +78,7 @@ typedef struct {
 	 * Stack on top off dynamic array for mixins.
 	 */
 	mixin_t **head;
-	blob_t *value; // if not empty
+	blob_t *value; // NULL if empty
 } node_t;
 
 // Methods:
@@ -99,7 +96,7 @@ typedef enum {
 	 * Third parameter - const char *name
 	 * Forth parameter - node_t *what
 	 */
-	ADD_NODE,
+	LINK_NODE,
 	/*
 	 * For "primary" parent of node
 	 * Third parameter - unsigned int options
@@ -138,7 +135,15 @@ typedef enum {
 
 typedef int ( *method_t )( int mindex, node_t *node, va_list args );
 
-extern int _cfg_invoke_next( int mindex, node_t *node, method_id_t m, ... );
+extern int _cfg_invoke_next( int mindex, node_t *node,
+	method_id_t m, va_list args
+);
+
+static inline int _cfg_invoke_method( node_t *node,
+	method_id_t m, va_list args
+) {
+	return _cfg_invoke_next( 0, node, m, args );
+}
 
 /*
  * Array of methods. See method_t

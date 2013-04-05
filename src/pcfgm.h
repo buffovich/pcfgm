@@ -385,16 +385,5 @@ extern int cfg_data_destroy( cfg_param_data_t* clone );
 extern int cfg_data_resize_array( cfg_param_vector_data_t* data,
     size_t new_length
 );
-/**
- * Returns error code and error message.
- * If troubles strike then you can read what is happened through
- * mentioned routine. It returns error code and (optionally)
- * human-readable error message.
- * @param message pointer to variable where pointer to string with error
- *                will be stored; if NULL then no error messsage will be
- *                returned;
- * @return error code
- */
-extern int cfg_error( char** message );
 
 #endif
