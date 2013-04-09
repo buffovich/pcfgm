@@ -13,7 +13,7 @@ static inline node_t* __get_referred( int mindex, node_t *node ) {
 	CFG_NODE_TO_SELF( node, mindex, char* );
 
 	node_t *n = cfg_node_get( cur, ( char* ) ( self ) );
-	
+
 	// TODO: think about another errors
 	if( ( n == NULL ) && ( cfg_error( NULL ) == CFG_NODE_DOES_NOT_EXIST ) ) {
 		return NULL;
@@ -51,11 +51,10 @@ static methods_table_t _G_pointer_methods = {
 	[ ACCEPT_ADVICE ] = _proxy_ACCEPT_ADVICE,
 	[ GET_VALUE ] = _proxy_GET_VALUE,
 	[ SET_VALUE ] = _proxy_SET_VALUE
-}
+};
 
-void* new( node_t *plugin_cfg ) {
-	char *path = CFG_NODE_VALUE_TO( plugin_cfg, "cstr" );
-
+void* before_create( blob_t* icfg ) {
+	char *path = CFG_VALUE_TO( icfg, "cstr" );
 	//TODO: handle case when value is absent
 	//TODO: handle case when cast is failed
 
@@ -68,12 +67,20 @@ void* new( node_t *plugin_cfg ) {
 
 	strcpy( self, path );
 
-	return self;
+	return m;
 }
 
-node_t* try_create( void* inst, node_t* parent ) {
-	node_t *me = cfg_node_produce( parent );
-	cfg_mixin_add( me, ( mixin_t* ) inst );
+node_t* on_create( void* with, node_t* parent ) {
+	node_t *me = cfg_node_create( parent );
+	cfg_mixin_add( me, ( mixin_t* ) with );
 	
 	return me;
+}
+
+int on_enter( node_t *to ) {
+	return 1;
+}
+
+int on_leaving( node_t *from ) {
+	return 1;
 }

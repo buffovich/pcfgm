@@ -113,3 +113,29 @@ typedef int ( *del_pred_m )();
 #define CLASS_HAS_GET_PRED 8
 #define CLASS_HAS_ADD_PRED 32
 #define CLASS_HAS_DEL_PRED 128
+
+
+I have encountered following problems:
+What if:
+Configuration of plugin contains plugin mount points itself:
+	How storage plugin will work in this case:
+	1) At first, we create node from the current parent;
+	2) Then, we assign value to this node;
+	3) Then, we dive deeper to assign childrens to this node;
+	***4) Then, we add node to his parent***
+	At the last stage plugin "plugger" does its work and parse name, formed in
+	special syntax:
+	#<node_name>:<plugin_name>
+	From this point, plugger initiates loading of mentioned plugin and passing
+	created node to it as a configuration tree.
+	OK. Now, lets imagine that the same process will be performed at really
+	any point at the mentioned configuration tree. So, we will have nodes,
+	created as a result of plugin mounting in the mentioned plugin
+	configuration. For example, plugin configration (which is tree itself) can
+	contain hardlinks, softlinks, mounting binary configuration and so on.
+	Everything would be OK if hardlinks catch its reffered nodes at the first
+	pass. But, sometimes, they won't.
+	OK. Let's start from this point. "Plugger" calls plugin node constructor
+	which returns NULL. What does plugger need to track this situation?
+	At first, it needs a reference to the parent, reference to configuration
+	node and reference to the plugin packed into single structure.

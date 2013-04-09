@@ -3,25 +3,29 @@
 
 /*
  * Constructor for plugin instance.
- * It takes configuration of instance as node graph.
- * Yes, plugin config is graph too. Mathematically clear.
- * Returns instance for passing it to try_bind.
+ * The only parameter is the configuration value packed to the blob.
+ * Plugin can use node graph attched to the point plugin applied but
+ * this solution relates to using methods described below.
+ * Framework asking plugin create the node to continue tree building.
+ * If NULL then plugin instance will be enqueued for the next round of evaluation.
+ * The next phase hooks won't be called until this one has returned Node
+ * instance.
  */
-extern void* new( node_t* cfg );
+extern void* on_create( blob_t* icfg, node_t* parent );
 
 /*
- * The idea is to stick particular plugin instance to the Node object.
- * Method performs mixing if needed (in the most cases, actually).
- * It can return the result of "binding". If its result is NULL then
- * appropriate plugin instance will be enqueued into "initialization-pending"
- * list and will be invoked again at the next pass of config evaluation with
- * the same instance parameter. This feature is actual for hardlinks,
- * for example. Because of inevitable influence of execution sequence. And
- * hardlink can refer at particular evaluation iteration to the destination
- * at the graph which doesn't exist yet (for example external configuration
- * tree).
- * TODO: Framework should pass start node here. Node should be allocated already
+ * Framework is going to fill subtree attached to the place where plugin
+ * has been instantiated. If FALSE is returned then plugin instance will be
+ * enqueued for the next round of evaluation. The next phase hooks won't be
+ * called until this one has returned TRUE instance.
  */
-extern node_t* try_create( void* inst, node_t* parent );
+extern void* on_enter( void* with );
+
+/*
+ * Framework is going to leave filled subtree. At this stage subtree is
+ * filled entirely. All subtree nodes should return successfully from their's
+ * on_leave stages.
+ */
+extern void* on_leaving( void* with );
 
 #endif

@@ -26,11 +26,14 @@ extern cfg_node_t cfg_node_link( cfg_node_t cur,
     const char* name
 );
 
-extern cfg_node_t cfg_node_create( cfg_node_t primary,
-	const char* name,
+extern cfg_node_t cfg_node_create_with_class( cfg_node_t parent,
+	class_t *klass,
+	void *idata
 );
 
-extern cfg_node_t cfg_node_produce( cfg_node_t parent );
+static inline cfg_node_t cfg_node_create( cfg_node_t parent ) {
+	return cfg_node_create_with_class( parent, NULL, NULL );
+}
 
 extern cfg_node_t cfg_node_del( cfg_node_t cur,
     const char* name

@@ -29,12 +29,6 @@ typedef void* cfg_iter_t;
  * TODO: consider cash thrashing. Try to maintain spatial locality! Try to
  * use arrays instead of lists or place list nodes near each other.
  */
-
-typedef struct {
-	uint32_t length;
-	uint8_t data[];
-} data_t;
-
 //  == 1 if saved on big-endian host
 #define BLOB_BIG_ENDIAN 256
 // == 1 if is floating point number
@@ -53,22 +47,21 @@ typedef struct {
 	
 	union {
 		uint8_t value[ 1 ];
-		data_t data;
+		
+		struct {
+			uint32_t length;
+			uint8_t data[];
+		} array;
 	};
 } blob_t;
 
-typedef struct {
-	methods_table_t *vtable; // mixin's methods table
-	data_t *instance; // mixin's part of run-time data
-} mixin_t;
+// class won't be inherited by children nodes
+#define CLASS_UNINHERITABLE 1
 
-/*
- * Confession:
- * node struct is not very mathematically perfect because there is the special
- * case of "non-virtual" node. Non-virtual node is handled by iternal framework
- * getters and setters. There is no need to scan methods table. It will work
- * faster than virtual node. Faster means better for config.
- */
+typedef struct {
+	unsigned int options;
+	methods_table_t *vtable; // mixin's methods table
+} class_t;
 
 typedef struct {
 	node_t *parent;
@@ -77,52 +70,79 @@ typedef struct {
 	/*
 	 * Stack on top off dynamic array for mixins.
 	 */
-	mixin_t **head;
-	blob_t *value; // NULL if empty
+	union {
+		// it depends on what particular class wants to see
+		void **head;
+		void *tag
+	};
+	
+	class_t **class;
 } node_t;
 
 // Methods:
 typedef enum {
 	/*
 	 * Third parameter - cfg_iter_t *iter
+	 * If return value == 0 then previous class method won't be invoked.
+	 * == 1 - framework will continue calling sequence
 	 */
 	GET_ITER = 0,
 	/*
 	 * Third parameter - const char *name
 	 * Forth parameter - node_t **ret
+	 * If return value == 0 then previous class method won't be invoked.
+	 * == 1 - framework will continue calling sequence
 	 */
-	GET_NODE,
+	LOOKUP_NODE,
 	/*
 	 * Third parameter - const char *name
 	 * Forth parameter - node_t *what
+	 * If return value == 0 then previous class method won't be invoked.
+	 * == 1 - framework will continue calling sequence
 	 */
 	LINK_NODE,
 	/*
+	 * Factory method 
 	 * For "primary" parent of node
-	 * Third parameter - unsigned int options
-	 * Forth parameter - node_t **node
+	 * Third parameter - node_t **node
+	 * Pointing value which is pointer to node should be == NULL in the case if
+	 * nothing has been allocated yet. So, the first create routine in the chain
+	 * is guaranteed to be recieved NULL as the value of pointer to node.
+	 * Third parameter can't be NULL itself.
+	 * create method should invoke previous create explicitly.
+	 * TODO: I don't know how to treat return value.
 	 */
 	CREATE_NODE,
 	/*
 	 * Third parameter - const char *name
+	 * If return value == 0 then previous class method won't be invoked.
+	 * == 1 - framework will continue calling sequence
 	 */
 	DEL_NODE,
 	/*
 	 * For advice from high-level routines about number of nodes
 	 * planned for adding
 	 * Third parameter - size_t num
+	 * If return value == 0 then previous class method won't be invoked.
+	 * == 1 - framework will continue calling sequence
 	 */
 	ACCEPT_ADVICE,
 	/*
 	 * Third value - blob_t *value
+	 * If return value == 0 then previous class method won't be invoked.
+	 * == 1 - framework will continue calling sequence
 	 */
 	GET_VALUE,
 	/*
 	 * Third value - blob_t *value
+	 * If return value == 0 then previous class method won't be invoked.
+	 * == 1 - framework will continue calling sequence
 	 */
 	SET_VALUE,
 	/*
 	 * No extra parameters
+	 * If destroy method returns 0 then no extra efforts needed from framework.
+	 * Otherwise - next destructor will be invoked automatically.
 	 */
 	DESTROY
 } method_id_t;
@@ -133,19 +153,31 @@ typedef enum {
  * Universal template for all methods.
  */
 
-typedef int ( *method_t )( int mindex, node_t *node, va_list args );
-
-extern int _cfg_invoke_next( int mindex, node_t *node,
-	method_id_t m, va_list args
+typedef int ( *method_t )( node_t *node,
+	class_t **klass,
+	void **datapp,
+	va_list args
 );
-
-static inline int _cfg_invoke_method( node_t *node,
-	method_id_t m, va_list args
-) {
-	return _cfg_invoke_next( 0, node, m, args );
-}
 
 /*
  * Array of methods. See method_t
  */
 typedef method_t methods_table_t[ METHODS_NUM ];
+
+extern int _cfg_add_ptr( void *what, node_t *to );
+
+extern int _cfg_add_class( class_t *class, node_t *to );
+
+extern int _cfg_invoke_next( node_t *node,
+	class_t **klass,
+	void **datapp,
+	method_id_t m,
+	va_list args
+);
+
+static inline int _cfg_invoke_method( node_t *node,
+	method_id_t m,
+	va_list args
+) {
+	return _cfg_invoke_next( node, node->class, node->head, m, args );
+}

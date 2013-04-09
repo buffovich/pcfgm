@@ -10,38 +10,26 @@ typedef struct {
 } bin_storage_t;
 
 /* we need only cleanup ourselves */
-static methods_table_t _G_methods = {
-	[ DESTROY ] = _destroy_config
+static class_t _G_storage = {
+	.options = CLASS_UNINHERITABLE,
+	.vtable = {
+		[ DESTROY ] = _destroy_config
+	}
 };
 
 /* de-mapping and file closing */
-static _destroy_config( int mindex, node_t *node, va_list p ) {
-	CFG_NODE_TO_SELF( node, mindex, bin_storage_t );
+static int _destroy_config( node_t *node,
+	class_t **klass,
+	void **datapp,
+	va_list args
+) {
+	CFG_PPTR_TO_SELF( datapp, bin_storage_t )
 
 	munmap( self->mapping, self->fsize );
 	close( self->fdesc );
-}
 
-void* new( node_t *plugin_cfg ) {
-	char *fname = CFG_NODE_VALUE_TO( plugin_cfg, "cstr" );
-	//TODO: handle case when value is absent
-	//TODO: handle case when cast is failed
-
-	mixin_t *m = cfg_mixin_alloc( _G_methods, sizeof( bin_storage_t ), 0 );
-	CFG_MIXIN_TO_SELF( m, bin_storage_t );
-	
-	self->fdesc = open( fname, O_RDONLY );
-	//TODO: handle case when file can't be opened
-
-	struct stat fst;
-	fstat( self->fdesc, &fst );
-	self->fsize = fst->st_size;
-
-	self->mapping = mmap( NULL, self->fsize, PROT_READ, MAP_SHARED,
-		self->fdesc, 0
-	);
-
-	return m;
+	// Please, framework, invoke the next destructor. OK?
+	return 1;
 }
 
 /*
@@ -81,12 +69,17 @@ static void *_process_subtree( char *cur_ptr, node_t *n ) {
 	cur_ptr += sizeof( uint32_t );
 	char *c = cur_ptr + names_length;
 	for( uint32_t i; i < cnum; ++i ) {
-		c = _process_subtree( c , cfg_node_create( n, cur_ptr ) );
+		c = _process_subtree( c,
+			cfg_node_link(n,
+				cfg_node_create( n ),
+				cur_ptr
+			)
+		);
 		cur_ptr += strlen( cur_ptr ) + 1;
 	}
 
 	cfg_value_set( n, datap );
-	
+
 	/* to protect ourselves from false change detection through mixin hooks
 	 * TODO: there is no need to provide any hooks on read-only tree
 	 * review this part when there will be a need to write configs
@@ -98,18 +91,44 @@ static void *_process_subtree( char *cur_ptr, node_t *n ) {
 	return c;
 }
 
-node_t* try_create( void *m, node_t *parent ) {
-	CFG_MIXIN_TO_SELF( ( mixin_t* ) m, bin_storage_t );
-	
-	uint32_t ptr = ( uint32_t* ) self->mapping;
+void* on_create( blob_t* icfg, node_t* parent ) {
+	char *fname = CFG_VALUE_TO( icfg, "cstr" );
+	//TODO: handle case when value is absent
+	//TODO: handle case when cast is failed
+
+	//TODO: think about alternative allocator
+	bin_storage_t *self = calloc( 1, sizeof( bin_storage_t ) );
+
+	self->fdesc = open( fname, O_RDONLY );
+	//TODO: handle case when file can't be opened
+
+	struct stat fst;
+	fstat( self->fdesc, &fst );
+	self->fsize = fst->st_size;
+
+	uint32_t ptr =
+		self->mapping = mmap( NULL, self->fsize, PROT_READ, MAP_SHARED,
+			self->fdesc, 0
+		);
+
+	cfg_mixin_alloc( _G_methods, sizeof( bin_storage_t ), 0 );
+
 	uint32_t options = ( *ptr );
 
-	node_t *me = cfg_node_produce( parent );
+	node_t *me = cfg_node_create( parent );
 	
 	_process_subtree( ptr + 1, me );
 
-	cfg_mixin_add( me, ( mixin_t* ) m );
+	cfg_mixin_add( me, ( mixin_t* ) inst );
 
 	// always successfull first run of binding
 	return me;
+}
+
+int on_enter( node_t *to ) {
+	return 1;
+}
+
+int on_leaving( node_t *from ) {
+	return 1;
 }
