@@ -11,21 +11,14 @@
  * The next phase hooks won't be called until this one has returned Node
  * instance.
  */
-extern void* on_create( blob_t* icfg, node_t* parent );
+extern node_t* on_create( node_t *cfg, node_t *me );
 
 /*
- * Framework is going to fill subtree attached to the place where plugin
- * has been instantiated. If FALSE is returned then plugin instance will be
- * enqueued for the next round of evaluation. The next phase hooks won't be
- * called until this one has returned TRUE instance.
+ * The idea of "me" parameter is to provide plugin with created node; if
+ * created node doesn't fit plugin then plugin contructor may safely
+ * return pointer to another node. It shouldn't deallocate "me". It will be
+ * done by framework.
  */
-extern void* on_enter( void* with );
-
-/*
- * Framework is going to leave filled subtree. At this stage subtree is
- * filled entirely. All subtree nodes should return successfully from their's
- * on_leave stages.
- */
-extern void* on_leaving( void* with );
+typedef node_t* ( *plugin_constructor_t )( node_t* cfg, node_t* me );
 
 #endif

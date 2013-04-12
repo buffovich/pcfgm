@@ -1,4 +1,5 @@
 #include <api/plugin.h>
+#include <stdarg.h>
 
 /* be careful ! Soft links will work much slower then hard ones.*/
 /* now, think about situation when we are referencing to the branch
@@ -9,78 +10,80 @@
  * we enqueue nodes/plugins which report that they can't evaluate yet.
  */
 
-static inline node_t* __get_referred( int mindex, node_t *node ) {
-	CFG_NODE_TO_SELF( node, mindex, char* );
-
-	node_t *n = cfg_node_get( cur, ( char* ) ( self ) );
-
-	// TODO: think about another errors
-	if( ( n == NULL ) && ( cfg_error( NULL ) == CFG_NODE_DOES_NOT_EXIST ) ) {
-		return NULL;
-	}
-}
-
 #define PROXIFY( method ) \
-static int _proxy_ ## method( int mindex, node_t *node, va_list args ) { \
-	node_t *n = __get_referred( mindex, node ); \
+static int _proxy_ ## method( node_t *node, \
+	class_t **klass, \
+	void **datapp, \
+	va_list args \
+) { \
+	node_t *n = _cfg_node_lookup( cur, ( char* ) ( *datapp ) ); \
 
 	if( n == NULL ) { \
 		return 0; \
 	} \
 
-	return _cfg_invoke_method( n, method, args ); \
+	_cfg_method_invoke( n, method, args ); \
+	
+	return 1; \
 }
+
+// TODO: opaque moment; for now let's ask framework to invoke next methos
+// in the sequence
 
 /* Implementation of dumb proxy methods as it's needed for symlink */
 PROXIFY( GET_NODE )
 PROXIFY( GET_ITER )
-PROXIFY( GET_NODE )
-PROXIFY( ADD_NODE )
+PROXIFY( LOOKUP_NODE )
+PROXIFY( LINK_NODE )
 PROXIFY( CREATE_NODE )
 PROXIFY( DEL_NODE )
 PROXIFY( ACCEPT_ADVICE )
 PROXIFY( GET_VALUE )
 PROXIFY( SET_VALUE )
 
-static methods_table_t _G_pointer_methods = {
-	[ GET_ITER ] = _proxy_GET_ITER,
-	[ GET_NODE ] = _proxy_GET_NODE,
-	[ ADD_NODE ] = _proxy_ADD_NODE,
-	[ CREATE_NODE ] = _proxy_CREATE_NODE,
-	[ DEL_NODE ] = _proxy_DEL_NODE,
-	[ ACCEPT_ADVICE ] = _proxy_ACCEPT_ADVICE,
-	[ GET_VALUE ] = _proxy_GET_VALUE,
-	[ SET_VALUE ] = _proxy_SET_VALUE
-};
+static int _destroy_symlink( node_t *node,
+	class_t **klass,
+	void **datapp,
+	va_list args
+) {
+	// TODO: think about alternative allocating mechanisms
+	free( *datapp );
 
-void* before_create( blob_t* icfg ) {
-	char *path = CFG_VALUE_TO( icfg, "cstr" );
+	return 1;
+}
+
+static class_t _G_symlink = {
+	.options = CLASS_UNINHERITABLE,
+	.vtable = {
+		[ GET_ITER ] = _proxy_GET_ITER,
+		[ LOOKUP_NODE_NODE ] = _proxy_LOOKUP_NODE,
+		[ LINK_NODE ] = _proxy_ADD_NODE,
+		[ CREATE_NODE ] = _proxy_CREATE_NODE,
+		[ DEL_NODE ] = _proxy_DEL_NODE,
+		[ ACCEPT_ADVICE ] = _proxy_ACCEPT_ADVICE,
+		[ GET_VALUE ] = _proxy_GET_VALUE,
+		[ SET_VALUE ] = _proxy_SET_VALUE,
+		[ DESTROY ] = _destroy_link
+	}
+}
+
+node_t* on_create( node_t* cfg, node_t* me ) {
+	char *path = CFG_NODE_VALUE_TO(
+		_cfg_node_lookup( cfg, "to" ),
+		"cstr"
+	);
+
+	if( path == NULL )
+		return NULL;
+	//TODO: handle case when node is absent
 	//TODO: handle case when value is absent
 	//TODO: handle case when cast is failed
 
-	mixin_t* m = cfg_mixin_alloc( _G_pointer_methods,
-		sizeof( node_pointer_t ) + strlen( path ),
-		0
-	);
-
-	CFG_MIXIN_TO_SELF( m, char* );
+	char* self = calloc( strlen( path ) + 1, 1 );
 
 	strcpy( self, path );
 
-	return m;
-}
-
-node_t* on_create( void* with, node_t* parent ) {
-	node_t *me = cfg_node_create( parent );
-	cfg_mixin_add( me, ( mixin_t* ) with );
+	_cfg_node_add_class( me, &_G_symlink, self );
 	
 	return me;
-}
-
-int on_enter( node_t *to ) {
-	return 1;
-}
-
-int on_leaving( node_t *from ) {
-	return 1;
 }

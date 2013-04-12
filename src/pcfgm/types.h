@@ -57,6 +57,8 @@ typedef struct {
 
 // class won't be inherited by children nodes
 #define CLASS_UNINHERITABLE 1
+// class instance has its own blob
+#define CLASS_INSTANCE_HAS_NO_DATA 2
 
 typedef struct {
 	unsigned int options;
@@ -164,20 +166,29 @@ typedef int ( *method_t )( node_t *node,
  */
 typedef method_t methods_table_t[ METHODS_NUM ];
 
-extern int _cfg_add_ptr( void *what, node_t *to );
+extern int _cfg_ptr_add( void *what, node_t *to );
 
-extern int _cfg_add_class( class_t *class, node_t *to );
+extern int _cfg_class_add( class_t *class, node_t *to );
 
-extern int _cfg_invoke_next( node_t *node,
+extern int _cfg_node_recycle( node_t *what );
+
+/*
+ * Framework has high-level API and plugin API. The trick is that just before
+ * return from each high-level method, all work should be done.
+ * Put the work into thread-local variable.
+ */
+extern int _cfg_work_add( int (*handler)( void* ), void *data );
+
+extern int _cfg_method_super( node_t *node,
 	class_t **klass,
 	void **datapp,
 	method_id_t m,
 	va_list args
 );
 
-static inline int _cfg_invoke_method( node_t *node,
+static inline int _cfg_method_invoke( node_t *node,
 	method_id_t m,
 	va_list args
 ) {
-	return _cfg_invoke_next( node, node->class, node->head, m, args );
+	return _cfg_method_super( node, node->class, node->head, m, args );
 }

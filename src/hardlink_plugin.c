@@ -1,26 +1,15 @@
 #include <api/plugin.h>
+#include <stdarg.h>
 
-void* before_create( blob_t* icfg ) {
-	return CFG_VALUE_TO( icfg, "cstr" );
+node_t* on_create( node_t* cfg, node_t* me ) {
+	char *path = CFG_NODE_VALUE_TO(
+		_cfg_node_lookup( cfg, "to" ),
+		"cstr"
+	);
+	
+	if( path == NULL )
+		return NULL;
 	//TODO: handle case when value is absent
 	//TODO: handle case when cast is failed
-}
-
-node_t* on_create( void* with, node_t* parent ) {
-	node_t *n = cfg_node_get( parent, ( char* ) ( with ) );
-	
-	// TODO: think about another errors
-	if( ( n == NULL ) && ( cfg_error( NULL ) == CFG_NODE_DOES_NOT_EXIST ) ) {
-		return NULL;
-	}
-
-	return n;
-}
-
-int on_enter( node_t *to ) {
-	return 1;
-}
-
-int on_leaving( node_t *from ) {
-	return 1;
+	return _cfg_node_lookup( parent, ( char* ) ( path ) );
 }

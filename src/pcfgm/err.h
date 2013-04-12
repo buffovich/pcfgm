@@ -3,7 +3,8 @@
 
 typedef enum {
 	CFG_OK = 0,
-	CFG_NODE_DOES_NOT_EXIST
+	// everything is clear here
+	CFG_NODE_DOES_NOT_EXIST,
 } err_t;
 
 /**
