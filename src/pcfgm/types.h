@@ -170,8 +170,6 @@ extern int _cfg_ptr_add( void *what, node_t *to );
 
 extern int _cfg_class_add( class_t *class, node_t *to );
 
-extern int _cfg_node_recycle( node_t *what );
-
 /*
  * Framework has high-level API and plugin API. The trick is that just before
  * return from each high-level method, all work should be done.
@@ -184,6 +182,13 @@ extern int _cfg_method_super( node_t *node,
 	void **datapp,
 	method_id_t m,
 	va_list args
+);
+
+extern int _cfg_method_superv( node_t *node,
+	class_t **klass,
+	void **datapp,
+	method_id_t m,
+	...
 );
 
 static inline int _cfg_method_invoke( node_t *node,

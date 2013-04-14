@@ -43,6 +43,8 @@ extern int cfg_node_mark( cfg_node_t what );
 
 extern int cfg_node_unmark( cfg_node_t what );
 
+extern int cfg_node_gc( cfg_node_t what );
+
 /*
  * TODO: I know. It's ugly name. But what would you suggest? And it's
  * convenient and fast way to alert underlying plugin about particular

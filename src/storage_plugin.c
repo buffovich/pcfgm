@@ -95,10 +95,7 @@ static void *__process_subtree( char *cur_ptr, node_t *n ) {
 }
 
 node_t* on_create( node_t* cfg, node_t* me ) {
-	char *fname = CFG_NODE_VALUE_TO(
-		_cfg_node_lookup( cfg, "path" ),
-		"cstr"
-	);
+	char *fname = CFG_VALUE_BY_PATH( cfg, "path", "cstr" );
 
 	if( fname == NULL )
 		return NULL;
