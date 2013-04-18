@@ -1,4 +1,12 @@
-#include <api/plugin.h>
+#include <pcfgm/internal/plugin.h>
+
+#include <pcfgm/graph.h>
+#include <pcfgm/values.h>
+#include <pcfgm/types.h>
+#include <pcfgm/types/basic.h>
+
+#include <pcfgm/internal/graph.h>
+
 #include <stdarg.h>
 
 /* feature of storage plugin is that entire file with binary config tree
@@ -60,13 +68,13 @@ static void *__process_subtree( char *cur_ptr, node_t *n ) {
 	// placed a hooks on set/get value
 	blob_t *datap = ( blob_t* ) cur_ptr;
 
-	_cfg_value_set( n, datap );
+	cfg_value_set( n, datap );
 
 	size_t blob_size = ( datap->options & BLOB_LENGTH_MASK ) *
 		( ( datap->options & BLOB_ARRAY ) ? datap->data.length : 1 ) +
 		sizeof( uint32_t );
 	// dealing with alignment
-	size_t blob_size_rem = blob_size % sizeof( uint32_t )
+	size_t blob_size_rem = blob_size % sizeof( uint32_t );
 	if( blob_size_rem )
 		blob_size += sizeof( uint32_t ) - blob_size_rem;
 	cur_ptr += blob_size;
@@ -78,7 +86,7 @@ static void *__process_subtree( char *cur_ptr, node_t *n ) {
 	for( uint32_t i; i < cnum; ++i ) {
 		cnode = cfg_node_create( n );
 		c = __process_subtree( c, cnode );
-		_cfg_node_link( n, cnode, cur_ptr );
+		cfg_node_link( n, cnode, cur_ptr );
 		cur_ptr += strlen( cur_ptr ) + 1;
 	}
 
@@ -95,13 +103,16 @@ static void *__process_subtree( char *cur_ptr, node_t *n ) {
 }
 
 node_t* on_create( node_t* cfg, node_t* me ) {
-	char *fname = CFG_VALUE_BY_PATH( cfg, "path", "cstr" );
-
-	if( fname == NULL )
+	size_t fnsize = CFG_VALUE( cfg, "path", "cstr", NULL );
+	
+	if( fnsize == 0 )
 		return NULL;
 	//TODO: handle case when node is absent
 	//TODO: handle case when value is absent
 	//TODO: handle case when cast is failed
+	
+	char *fname = alloca( fnsize );
+	CFG_VALUE( cfg, "path", "cstr", fname );
 
 	//TODO: think about alternative allocator
 	bin_storage_t *self = calloc( 1, sizeof( bin_storage_t ) );

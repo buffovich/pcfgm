@@ -1,4 +1,11 @@
-#include <api/plugin.h>
+#include <pcfgm/internal/plugin.h>
+
+#include <pcfgm/graph.h>
+#include <pcfgm/types.h>
+#include <pcfgm/types/basic.h>
+
+#include <pcfgm/internal/graph.h>
+
 #include <stdarg.h>
 
 /* be careful ! Soft links will work much slower then hard ones.*/
@@ -16,13 +23,13 @@ static int _proxy_ ## method( node_t *node, \
 	void **datapp, \
 	va_list args \
 ) { \
-	node_t *n = _cfg_node_lookup( cur, ( char* ) ( *datapp ) ); \
+	node_t *n = cfg_node_lookup( cur, ( char* ) ( *datapp ) ); \
 
 	if( n == NULL ) { \
 		return 0; \
 	} \
 
-	_cfg_method_invoke( n, method, args ); \
+	_cfg_method_invokev( n, method, args ); \
 	
 	return 1; \
 }
@@ -36,7 +43,7 @@ PROXIFY( GET_ITER )
 PROXIFY( LOOKUP_NODE )
 PROXIFY( LINK_NODE )
 PROXIFY( CREATE_NODE )
-PROXIFY( DEL_NODE )
+PROXIFY( UNLINK_NODE )
 PROXIFY( ACCEPT_ADVICE )
 PROXIFY( GET_VALUE )
 PROXIFY( SET_VALUE )
@@ -59,7 +66,7 @@ static class_t _G_symlink = {
 		[ LOOKUP_NODE_NODE ] = _proxy_LOOKUP_NODE,
 		[ LINK_NODE ] = _proxy_ADD_NODE,
 		[ CREATE_NODE ] = _proxy_CREATE_NODE,
-		[ DEL_NODE ] = _proxy_DEL_NODE,
+		[ UNLINK_NODE ] = _proxy_DEL_NODE,
 		[ ACCEPT_ADVICE ] = _proxy_ACCEPT_ADVICE,
 		[ GET_VALUE ] = _proxy_GET_VALUE,
 		[ SET_VALUE ] = _proxy_SET_VALUE,
@@ -68,17 +75,16 @@ static class_t _G_symlink = {
 }
 
 node_t* on_create( node_t* cfg, node_t* me ) {
-	char *path = CFG_VALUE_BY_PATH( cfg, "to", "cstr" );
-
-	if( path == NULL )
+	size_t psize = CFG_VALUE( cfg, "to", "cstr", NULL );
+	
+	if( psize == 0 )
 		return NULL;
 	//TODO: handle case when node is absent
 	//TODO: handle case when value is absent
 	//TODO: handle case when cast is failed
-
-	char* self = calloc( strlen( path ) + 1, 1 );
-
-	strcpy( self, path );
+	
+	const char *self = calloc( psize, sizeof( char ) );
+	CFG_VALUE( cfg, "to", "cstr", self );
 
 	_cfg_node_add_class( me, &_G_symlink, self );
 	

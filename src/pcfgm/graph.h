@@ -1,58 +1,54 @@
+#ifndef PCFGM_GRAPH
+#define PCFGM_GRAPH
+
 #include <pcfgm/types.h>
 
-/*
- * TODO: separate what is needed and should be visible for lib user and what
- * is needed for iternal mechanics.
- */
-
 /**
- * Get node with specified relative path.
- * Get descriptor of node with specified relative path according to
- * passed start node.
- * @param cfg config dscriptor
- * @param node start point for path walking
- * @param rel_path relative path to node from specified node;
- *                 if == NULL then source descriptor will be returned
- * @return descriptor binded to mentioned subtree or (spath == NULL)
- *         source; NULL if error occured
+ * Opens new session for default config.
+ * Opens new session for config for current application name (argv[0]).
+ * @return config tree descriptor, NULL if error
+ * @see cfg_init_as()
  * @see cfg_destroy()
  */
-extern cfg_node_t cfg_node_lookup( cfg_node_t cur,
-    const char* path
-);
-
-extern cfg_node_t cfg_node_link( cfg_node_t cur,
-	cfg_node_t what,
-    const char* name
-);
-
-extern cfg_node_t cfg_node_create( cfg_node_t parent );
-
-extern int cfg_node_add_class( cfg_node_t n,
-	class_t *klass,
-	void *idata
-);
-
-extern cfg_node_t cfg_node_del( cfg_node_t cur,
-    const char* name
-);
-
-/* Two methods for playing with reference count */
-
-extern int cfg_node_mark( cfg_node_t what );
-
-extern int cfg_node_unmark( cfg_node_t what );
-
-extern int cfg_node_gc( cfg_node_t what );
-
-/*
- * TODO: I know. It's ugly name. But what would you suggest? And it's
- * convenient and fast way to alert underlying plugin about particular
- * number of nodes we're going to add just after that.
+extern node_t *cfg_init( void );
+/**
+ * Opens new session for config.
+ * Opens new session for config for specified app name.
+ * @param app_path  application name (or ID), default if NULL
+ * @return config tree descriptor, NULL if error
+ * @see cfg_init()
+ * @see cfg_destroy()
  */
-extern cfg_node_t cfg_node_advise_capacity( cfg_node_t node,
-	unsigned int will_have_in_addition
-);
+extern node_t *cfg_init_as( const char* app_path );
+/**
+ * Lookup node with specified relative/absolute path.
+ * Lookup node with specified relative/absolute path according to
+ * passed start node.
+ * @param cur start point for path walking
+ * @param path relative path to node from specified node;
+ *             if == NULL then cur will be returned
+ * @return node binded to mentioned subtree or (spath == NULL)
+ *         source; NULL if error occured
+ * @see cfg_destroy()
+ * @see cfg_node_link()
+ */
+extern node_t *cfg_node_lookup( node_t *cur, const char* path );
+/**
+ * Link node to specified relative/absolute path.
+ * Link node to specified relative/absolute path according to
+ * passed start node.
+ * @param cur start point for path walking
+ * @param what node will be binded to mentioned subtree; NULL if error occured
+ * @param path relative path to node from specified node;
+ *             if == NULL then cur will be returned
+ * @see cfg_destroy()
+ * @see cfg_node_link()
+ */
+extern int cfg_node_link( node_t *cur, node_t *what, const char* name );
+
+extern node_t *cfg_node_create( node_t *parent );
+
+extern node_t *cfg_node_unlink( node_t *cur, const char* name );
 
 /**
  * Get parent node of passed node.
@@ -62,7 +58,7 @@ extern cfg_node_t cfg_node_advise_capacity( cfg_node_t node,
  * @see cfg_node_get_path()
  * @see cfg_node_get_name()
  */
-extern cfg_node_t cfg_node_get_parent( cfg_node_t node );
+extern node_t *cfg_node_get_parent( node_t *node );
 
 /**
  * Creates iterator.
@@ -74,7 +70,7 @@ extern cfg_node_t cfg_node_get_parent( cfg_node_t node );
  * @see cfg_iterator_t
  * @see cfg_iterator_next()
  */
-extern cfg_iter_t cfg_node_iterator( cfg_node_t parent );
+extern iter_t *cfg_iterator_get( node_t *parent );
 
 /**
  * Get next key-node pair.
@@ -90,7 +86,7 @@ extern cfg_iter_t cfg_node_iterator( cfg_node_t parent );
  * @see cfg_iterator_get()
  * @see cfg_iterator_t
  */
-extern cfg_node_t * cfg_iterate( cfg_iter_t iter, const char** key );
+extern node_t *cfg_iterator_next( iter_t *iter, const char** key );
 
 /**
  * Close config session/destroy any desriptor with associated buffers.
@@ -99,4 +95,6 @@ extern cfg_node_t * cfg_iterate( cfg_iter_t iter, const char** key );
  * @see cfg_init()
  * @see cfg_init_as()
  */
-extern int cfg_destroy( cfg_node_t cfg );
+extern int cfg_node_destroy( node_t *node );
+
+#endif PCFGM_GRAPH

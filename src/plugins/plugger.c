@@ -1,4 +1,12 @@
-#include <api/plugin.h>
+#include <pcfgm/internal/plugin.h>
+
+#include <pcfgm/graph.h>
+#include <pcfgm/values.h>
+#include <pcfgm/types.h>
+#include <pcfgm/types/basic.h>
+
+#include <pcfgm/internal/graph.h>
+
 #include <stdarg.h>
 #include <dlfcn.h>
 
@@ -104,7 +112,7 @@ static int _resolve_plugins( void *data ) {
 				_cfg_node_unmark( curpp->cfg );
 				curpp->cfg = pnode;
 				_cfg_node_mark(
-					curpp->node = _cfg_node_create( curpp->parent )
+					curpp->node = cfg_node_create( curpp->parent )
 				);
 			}
 		}
@@ -120,7 +128,7 @@ END_EVAL:
 			curpp = curpp->next;
 			isagain = 1;
 		} else {
-			_cfg_node_link( curpp->parent, curpp->node, curpp->name );
+			cfg_node_link( curpp->parent, curpp->node, curpp->name );
 			// everuthing is OK and we should delete successful postponed
 			// from the queue
 			__remove_postponed( plugger, &prev, &curpp );
@@ -135,19 +143,12 @@ static void __remove_postponed( plugger_t *plugger,
 	postponed_t **what,
 ) {
 	postponed_t *next = ( *what )->next;
+	__destroy_postponed( *what );
 	
-	if( *what == plugger->queue ) {
-		// first element has its own rules
-		// we should maintain the same pointer
-		__destroy_postponed( *what );
+	if( *what == plugger->queue )
 		plugger->queue = *prev = *what = next;
-		return;
-	} else {
-		// TODO: slab/tcalloc
-		__destroy_postponed( *what );
+	else
 		( *prev )->next = *what = next;
-		return;
-	}
 
 	return;
 }
@@ -257,9 +258,12 @@ static int _link_node( node_t *node,
 		// OK. It's the special node which describes plugins insertion.
 		node_t *cfg = va_arg( args, ( node_t* ) );
 		// It looks like: #name => plugin_name\0[plugin_name\0...][">"]\0
-		char *plugins = CFG_NODE_VALUE_TO( cfg, "cstr" );
+		size_t vsize = CFG_NODE_TO( cfg, "cstr", NULL );
 		// TODO: check for emptiness and cast error
-		node_t *newn = _cfg_node_create( node );
+		char *plugins = alloca( vsize );
+		CFG_NODE_TO( cfg, "cstr", plugins );
+		
+		node_t *newn = cfg_node_create( node );
 		node_t *pnode = newn;
 		plugin_constructor_t pconstr;
 		const char *plugin_fs_dir = ( ( plugger_t* ) *datapp )->plugin_fs_dir;
@@ -279,7 +283,7 @@ static int _link_node( node_t *node,
 					// if no then we should add the resolver for deffered
 					// execution
 					if( ( ( plugger_t* ) *datapp )->queue == NULL )
-						_cfg_work_add( _resolve_plugins, datapp );
+						_cfg_work_add( _resolve_plugins, *datapp );
 					// construction (or "mixing") failed - postpone it
 					__add_postponed(
 						__create_postponed( cur + strlen( cur ) + 1,
@@ -304,12 +308,12 @@ static int _link_node( node_t *node,
 				// next bunch of plugins; clean up previous configuration tree
 				_cfg_node_gc( cfg );
 				cfg = pnode;
-				pnode = newn = _cfg_node_create( node );
+				pnode = newn = cfg_node_create( node );
 			}
 		}
 
 		// plugins was inserted successfully - continue adding
-		_cfg_method_superv( node, klass, datapp, LINK_NODE,
+		_cfg_method_super( node, klass, datapp, LINK_NODE,
 			name + 1, pnode
 		);
 
@@ -321,35 +325,43 @@ static int _link_node( node_t *node,
 	return 1;
 }
 
-static int _create_node( node_t *node,
+static int _destroy_plugger( node_t *node,
 	class_t **klass,
 	void **datapp,
 	va_list args
 ) {
-	_cfg_method_super( node, klass, datapp, CREATE_NODE, args );
+	free( *datapp );
 
-	node_t *node = *( va_arg( args, ( node_t ** ) ) );
-	_cfg_ptr_add( *datapp, node );
-
-	return 0;
+	return 1;
 }
 
 static class_t _G_plugger = {
 	.options = 0,
 	.vtable = {
-		[ LINK_NODE ] = _link_node,
-		[ CREATE_NODE ] = _create_node
+		[ LINK_NODE ] = _link_node
 	}
 };
+
+static class_t _G_plugger_sanitizer = {
+	.options = CLASS_UNINHERITABLE,
+	.vtable = {
+		[ DESTROY ] = _destroy_plugger
+	}
+}
 
 node_t* on_create( node_t* cfg, node_t* me ) {
 	// TODO: slab/tcalloc
 	plugger_t *self = calloc( 1, sizeof( plugger_t ) );
-	
-	const char *fpath = CFG_VALUE_BY_PATH( cfg, "plugin_fs_dir", "cstr" );
+
 	// TODO: handle all kinds of error above
-	self->plugin_fs_dir = calloc( strlen( fpath ) + 1 , sizeof( char ) );
-	strcpy( self->plugin_fs_dir, fpath );
+	size_t fpsize = CFG_VALUE( cfg, "plugin_fs_dir", "cstr", NULL );
+	self->plugin_fs_dir = calloc( fpsize, sizeof( char ) );
+	CFG_VALUE( cfg, "plugin_fs_dir", "cstr", self->plugin_fs_dir );
+
+	_cfg_node_add_class( me,
+		&_G_plugger_sanitizer,
+		self
+	);
 	
 	_cfg_node_add_class( me,
 		&_G_plugger,

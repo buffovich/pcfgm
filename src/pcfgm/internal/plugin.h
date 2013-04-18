@@ -1,5 +1,7 @@
-#ifndef API_PLUGIN
-#define API_PLUGIN
+#ifndef PCFGM_INTERNAL_PLUGIN
+#define PCFGM_INTERNAL_PLUGIN
+
+#include <pcfgm/types.h>
 
 /*
  * Constructor for plugin instance.
@@ -20,5 +22,9 @@ extern node_t* on_create( node_t *cfg, node_t *me );
  * done by framework.
  */
 typedef node_t* ( *plugin_constructor_t )( node_t* cfg, node_t* me );
+
+// make self pointer from blob double pointer
+#define CFG_PPTR_TO_SELF( pp, mtype ) ( mtype ) *self = \
+	( ( mtype )* ) ( *( pp ) );
 
 #endif

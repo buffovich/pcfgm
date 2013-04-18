@@ -1,4 +1,4 @@
-#include <api/plugin.h>
+#include <pcfgm/internal/plugin.h>
 
 void* before_create( blob_t* icfg ) {
 	return 0;

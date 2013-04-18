@@ -1,3 +1,8 @@
+#ifndef PCFGM_TYPES
+#define PCFGM_TYPES
+
+#include <utarray.h>
+
 /**
  * Descriptor of node.
  * Whenever we open particular instance of config or pick particular
@@ -9,7 +14,6 @@
  * @see cfg_init_as();
  * @see cfg_destroy()
  */
-typedef void* cfg_node_t;
 
 /**
  * Represents iterator.
@@ -21,7 +25,10 @@ typedef void* cfg_node_t;
  * @see cfg_iterator_get()
  * @see cfg_iterator_next()
  */
-typedef void* cfg_iter_t;
+typedef struct {
+	node_t *( *parent )( void *clojure, const char **name );
+	void *clojure;
+} iter_t;
 
 // What blob is:
 
@@ -62,7 +69,7 @@ typedef struct {
 
 typedef struct {
 	unsigned int options;
-	methods_table_t *vtable; // mixin's methods table
+	methods_table_t vtable; // mixin's methods table
 } class_t;
 
 typedef struct {
@@ -72,13 +79,8 @@ typedef struct {
 	/*
 	 * Stack on top off dynamic array for mixins.
 	 */
-	union {
-		// it depends on what particular class wants to see
-		void **head;
-		void *tag
-	};
-	
-	class_t **class;
+	UT_array head;
+	UT_array classes;
 } node_t;
 
 // Methods:
@@ -112,6 +114,8 @@ typedef enum {
 	 * is guaranteed to be recieved NULL as the value of pointer to node.
 	 * Third parameter can't be NULL itself.
 	 * create method should invoke previous create explicitly.
+	 * You do not have to implement this method. If you don't implement it
+	 * then framework will just copy instance data pointer from parent to child
 	 * TODO: I don't know how to treat return value.
 	 */
 	CREATE_NODE,
@@ -120,7 +124,7 @@ typedef enum {
 	 * If return value == 0 then previous class method won't be invoked.
 	 * == 1 - framework will continue calling sequence
 	 */
-	DEL_NODE,
+	UNLINK_NODE,
 	/*
 	 * For advice from high-level routines about number of nodes
 	 * planned for adding
@@ -136,7 +140,7 @@ typedef enum {
 	 */
 	GET_VALUE,
 	/*
-	 * Third value - blob_t *value
+	 * Third value - blob_t * value
 	 * If return value == 0 then previous class method won't be invoked.
 	 * == 1 - framework will continue calling sequence
 	 */
@@ -166,34 +170,4 @@ typedef int ( *method_t )( node_t *node,
  */
 typedef method_t methods_table_t[ METHODS_NUM ];
 
-extern int _cfg_ptr_add( void *what, node_t *to );
-
-extern int _cfg_class_add( class_t *class, node_t *to );
-
-/*
- * Framework has high-level API and plugin API. The trick is that just before
- * return from each high-level method, all work should be done.
- * Put the work into thread-local variable.
- */
-extern int _cfg_work_add( int (*handler)( void* ), void *data );
-
-extern int _cfg_method_super( node_t *node,
-	class_t **klass,
-	void **datapp,
-	method_id_t m,
-	va_list args
-);
-
-extern int _cfg_method_superv( node_t *node,
-	class_t **klass,
-	void **datapp,
-	method_id_t m,
-	...
-);
-
-static inline int _cfg_method_invoke( node_t *node,
-	method_id_t m,
-	va_list args
-) {
-	return _cfg_method_super( node, node->class, node->head, m, args );
-}
+#endif PCFGM_TYPES
