@@ -1,10 +1,12 @@
-#ifndef API_ERR
-#define API_ERR
+#ifndef PCFGM_ERR
+#define PCFGM_ERR
 
 typedef enum {
 	CFG_OK = 0,
 	// everything is clear here
 	CFG_NODE_DOES_NOT_EXIST,
+	// we tried to convert blob to wrong type
+	CFG_TYPE_UNAPPLICABLE_TYPE
 } err_t;
 
 /**
@@ -19,5 +21,7 @@ typedef enum {
  */
 // TODO: do it in thread-local storage
 extern err_t cfg_error( char** message );
+
+extern void cfg_clear_error( void );
 
 #endif

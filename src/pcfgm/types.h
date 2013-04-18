@@ -2,6 +2,7 @@
 #define PCFGM_TYPES
 
 #include <utarray.h>
+#include <stdint.h>
 
 /**
  * Descriptor of node.
@@ -169,5 +170,28 @@ typedef int ( *method_t )( node_t *node,
  * Array of methods. See method_t
  */
 typedef method_t methods_table_t[ METHODS_NUM ];
+
+extern int __endian_test;
+
+static inline int is_cstr( blob_t *b ) {
+	return (
+		( b->options & BLOB_ARRAY ) &&
+		!( b->options & BLOB_FLOAT ) &&
+		( ( b->options & BLOB_LENGTH_MASK ) = sizeof( char ) )
+	);
+}
+
+static inline int is_host_endian( blob_t *b ) {
+	return (
+		(
+			( b->options & BLOB_BIG_ENDIAN ) &&
+			( *( ( char* ) &__endian_test ) == 0 )
+		) ||
+		(
+			!( b->options & BLOB_BIG_ENDIAN ) &&
+			( *( ( char* ) &__endian_test ) == 1 )
+		)
+	);
+}
 
 #endif PCFGM_TYPES

@@ -1,10 +1,17 @@
+#ifndef PCFGM_VALUES
+#define PCFGM_VALUES
+
+#include <pcfgm/graph.h>
+
 /* Operations with node itself */
 
-extern int cfg_value_set( cfg_node_t node,
+extern int cfg_value_set( node_t *node,
 	blob_t *value
 );
 
-extern blob_t *cfg_value_get( cfg_node_t node );
+extern blob_t *cfg_value_get( node_t *node );
+
+extern void cfg_blob_copy( blob_t *from, void *to );
 
 // TODO: continue definition
 #define CFG_BLOB_TO( blobptr, type, vptr )
@@ -19,3 +26,5 @@ extern blob_t *cfg_value_get( cfg_node_t node );
 // make self pointer from blob double pointer
 #define CFG_PPTR_TO_SELF( pp, mtype ) ( mtype ) *self = \
 	( ( mtype )* ) ( *( pp ) );
+
+#endif PCFGM_VALUES
