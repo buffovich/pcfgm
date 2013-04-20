@@ -41,11 +41,13 @@ typedef struct {
 #define BLOB_BIG_ENDIAN 256
 // == 1 if is floating point number
 #define BLOB_FLOAT 512
+#define BLOB_SIGNED 1024
 // == 1 if blob is array of elements
-#define BLOB_ARRAY 1024
-// == 0 if blob is allocated dynamically, for example
-// == 1 if blob came from mapping, for example
-#define BLOB_SHARED 2048
+#define BLOB_ARRAY 2048
+// == 1 if blob is allocated dynamically from created slab
+// == 0 if blob came from mapping, created in stack or through
+// 		standard malloc/free routines
+#define BLOB_TRACKED 4096
 // block size (or size of element in the case of array)
 #define BLOB_LENGTH_MASK 255
 
@@ -73,9 +75,9 @@ typedef struct {
 	methods_table_t vtable; // mixin's methods table
 } class_t;
 
+// TODO: link tracking should be implemented inside of slab logic
 typedef struct {
 	node_t *parent;
-	int ref_count;
 
 	/*
 	 * Stack on top off dynamic array for mixins.

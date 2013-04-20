@@ -11,7 +11,7 @@ extern int cfg_value_set( node_t *node,
 
 extern blob_t *cfg_value_get( node_t *node );
 
-extern void cfg_blob_copy( blob_t *from, void *to );
+extern int cfg_blob_copy( blob_t *from, void *to );
 
 // TODO: continue definition
 #define CFG_BLOB_TO( blobptr, type, vptr )

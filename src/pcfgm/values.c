@@ -25,55 +25,61 @@ static inline void __copy( blob_t *from, void *to ) {
 		);
 }
 
-void cfg_blob_copy( blob_t *from, void *to ) {
+int cfg_blob_copy( blob_t *from, void *to ) {
 	size_t len = from->options & BLOB_LENGTH_MASK;
 	
-	if( to == NULL ) {
-		if( from->options & BLOB_ARRAY )
-			return ( len * from->array.length )
-		else
-			return len;
+	if( to != NULL ) {
+		if( is_host_endian( from ) ||
+			( ( from->options & BLOB_LENGTH_MASK ) == 1 )
+		)
+			__copy( from, to );
+		else {
+			__copy( from, to );
+			if( from->options & BLOB_ARRAY )
+				switch( len ) {
+					case 2:
+						for( char *limit = to + 2 * from->array.length, *cyc = to;
+							cyc < limit;
+							cyc += 2
+						)
+							bswap_16( *( ( uint16_t* ) cyc ) );
+						break;
+					case 4:
+						for( char *limit = to + 4 * from->array.length, *cyc = to;
+							cyc < limit;
+							cyc += 4
+						)
+							bswap_32( *( ( uint32_t* ) cyc ) );
+						break;
+					default:
+						for( char *limit = to + len * from->array.length, *cyc = to;
+							cyc < limit;
+							cyc += len
+						)
+							__swap_bytes( cyc, len );
+				}
+			else
+				switch( len ) {
+					case 2:
+						bswap_16( *( ( uint16_t* ) to ) );
+						break;
+					case 4:
+						bswap_32( *( ( uint32_t* ) to ) );
+						break;
+					default:
+						__swap_bytes( to, len );
+				};
+		}
 	}
-	
-	if( is_host_endian( from ) ||
-		( ( from->options & BLOB_LENGTH_MASK ) == 1 )
-	)
-		__copy( from, to );
-	else {
-		__copy( from, to );
-		if( from->options & BLOB_ARRAY )
-			switch( len ) {
-				case 2:
-					for( char *limit = to + 2 * from->array.length, *cyc = to;
-						cyc < limit;
-						cyc += 2
-					)
-						bswap_16( *( ( uint16_t* ) cyc ) );
-					break;
-				case 4:
-					for( char *limit = to + 4 * from->array.length, *cyc = to;
-						cyc < limit;
-						cyc += 4
-					)
-						bswap_32( *( ( uint32_t* ) cyc ) );
-					break;
-				default:
-					for( char *limit = to + len * from->array.length, *cyc = to;
-						cyc < limit;
-						cyc += len
-					)
-						__swap_bytes( cyc, len );
-			}
-		else
-			switch( len ) {
-				case 2:
-					bswap_16( *( ( uint16_t* ) to ) );
-					break;
-				case 4:
-					bswap_32( *( ( uint32_t* ) to ) );
-					break;
-				default:
-					__swap_bytes( to, len );
-			};
-	}
+
+	if( from->options & BLOB_ARRAY )
+		return ( len * from->array.length )
+	else
+		return len;
+}
+
+int cfg_value_set( node_t *node, blob_t *value ) {
+}
+
+blob_t *cfg_value_get( node_t *node ) {
 }

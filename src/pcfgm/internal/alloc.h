@@ -1,32 +1,63 @@
 #ifndef API_ALLOC
 #define API_ALLOC
 
-extern slab_t *cfg_slab_create( size_t bsize, size_t align, size_t inum );
-extern int cfg_slab_free( slab_t *slab );
+#defined SLAB_REFERABLE 1
 
-extern class_t *cfg_class_alloc( methods_table_t methods,
-	unsigned int options,
-	class_t *prev
+typedef struct {
+	unsigned int nrefs;
+	uint8_t bytes[];
+} ref_buffer_t;
+
+typedef uint8_t buffer_t[];
+
+/*
+ * ATTENTION!!! memory footprint is:
+ *  <slab_t>[padding]<1-( sizeof(int)*8 - 1 ) blocks of data>
+ *  if( map & ( 1 << ( sizeof(int)*8 - 1 ) ) ) {
+ *    <unsigned int map><1-31 of
+ *      (<unsigned int map><1-(sizeof(int)*8) blocks of data>)
+ *    >
+ *  }
+ * [unsigned int map][1-31]
+ */
+
+typedef struct {
+	slab_t *next;
+	// everything should be clear here
+	unsigned int ntotal;
+	unsigned int nfree;
+	// the hardest part; to make long story short, let's say that it's
+	// bitmap of free and occupied blocks
+	unsigned int map;
+} slab_t;
+
+typedef struct {
+	// applied alignment in data block
+	unsigned int align;
+	// element size
+	size_t el_sz;
+	slab_t *head;
+	slab_t *tail;
+} cache_t;
+
+extern cache_t *_cfg_cache_create( unsigned int options,
+	size_t el_sz,
+	unsigned int align,
+	unsigned int inum
 );
 
-extern int cfg_class_free( class_t *m );
+extern void _cfg_cache_free( cache_t *cache );
 
-extern node_t *cfg_node_alloc( node_t *parent, class_t *mix_with );
+extern void _cfg_cache_reap
 
-extern int cfg_node_free( node_t *which );
+// mark object as allocated and increment reference number if the case
+extern void *_cfg_object_alloc( cache_t *slab );
 
-extern blob_t *cfg_blob_alloc( unsigned int options,
-	/* if == 0 then pointer alignment will be applied */
-	size_t data_align,
-	size_t idata_len // if array
-);
+// increment reference number if the case
+extern void *_cfg_object_get( cache_t *slab, void *obj );
 
-// function valid for arrays
-extern blob_t *cfg_blob_realloc( blob_t *which,
-	size_t idata_len
-);
-
-// if blob is shared then do nothing
-extern int cfg_blob_free( blob_t *b );
+// decrement reference number if the case; when number approaches zero then
+// object will be marked as free 
+extern void *_cfg_object_put( cache_t *slab, void *obj );
 
 #endif
