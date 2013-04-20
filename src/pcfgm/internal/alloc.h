@@ -1,5 +1,5 @@
-#ifndef API_ALLOC
-#define API_ALLOC
+#ifndef PCFGM_INTERNAL_ALLOC
+#define PCFGM_INTERNAL_ALLOC
 
 #defined SLAB_REFERABLE 1
 
@@ -10,23 +10,8 @@ typedef struct {
 
 typedef uint8_t buffer_t[];
 
-/*
- * ATTENTION!!! memory footprint is:
- *  <slab_t>[padding]<1-( sizeof(int)*8 - 1 ) blocks of data>
- *  if( map & ( 1 << ( sizeof(int)*8 - 1 ) ) ) {
- *    <unsigned int map><1-31 of
- *      (<unsigned int map><1-(sizeof(int)*8) blocks of data>)
- *    >
- *  }
- * [unsigned int map][1-31]
- */
-
 typedef struct {
 	slab_t *next;
-	// everything should be clear here
-	unsigned int ntotal;
-	unsigned int nfree;
-	// the hardest part; to make long story short, let's say that it's
 	// bitmap of free and occupied blocks
 	unsigned int map;
 } slab_t;
@@ -48,7 +33,7 @@ extern cache_t *_cfg_cache_create( unsigned int options,
 
 extern void _cfg_cache_free( cache_t *cache );
 
-extern void _cfg_cache_reap
+extern void _cfg_cache_reap( cache_t *cache );
 
 // mark object as allocated and increment reference number if the case
 extern void *_cfg_object_alloc( cache_t *slab );
@@ -57,7 +42,7 @@ extern void *_cfg_object_alloc( cache_t *slab );
 extern void *_cfg_object_get( cache_t *slab, void *obj );
 
 // decrement reference number if the case; when number approaches zero then
-// object will be marked as free 
+// object will be marked as free
 extern void *_cfg_object_put( cache_t *slab, void *obj );
 
 #endif
