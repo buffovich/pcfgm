@@ -6,10 +6,18 @@ typedef enum {
 	// everything is clear here
 	CFG_NODE_DOES_NOT_EXIST,
 	// we tried to convert blob to wrong type
-	CFG_TYPE_UNAPPLICABLE_TYPE
+	CFG_TYPE_UNAPPLICABLE_TYPE,
+	// unexpected NULL node
+	CFG_NODE_NULL,
+	// unexpected NULL class
+	CFG_CLASS_NULL,
+	// unexpected NULL data
+	CFG_DATA_NULL,
+	// unexpected non-NULL data
+	CFG_DATA_UNEXPECTED
 } err_t;
 
-/**
+/**1
  * Returns error code and error message.
  * If troubles strike then you can read what is happened through
  * mentioned routine. It returns error code and (optionally)

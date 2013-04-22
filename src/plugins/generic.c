@@ -1,15 +1,13 @@
 #include <pcfgm/internal/plugin.h>
 
-void* before_create( blob_t* icfg ) {
-	return 0;
-}
+#include <pcfgm/types.h>
+#include <pcfgm/internal/alloc.h>
 
-node_t* on_create( void* with, node_t* parent ) {
+static struct {
+	cache_t *nodes;
+	cache_t *blobs;
+} _G_objects;
+
+node_t* on_create( node_t *cfg, node_t *me ) {
 	
-}
-
-int on_enter( node_t *to ) {
-}
-
-int on_leaving( node_t *from ) {
 }

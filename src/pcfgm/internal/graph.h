@@ -3,10 +3,11 @@
 
 #include <pcfgm/types.h>
 
-extern int _cfg_node_add_class( node_t *n,
-	class_t *klass,
-	void *idata
-);
+extern void _cfg_node_initialize( node_t *n );
+
+extern void _cfg_node_finalize( node_t *n );
+
+extern void _cfg_node_add_class( node_t *n, class_t *klass, void *idata );
 
 /* Two methods for playing with reference count */
 
