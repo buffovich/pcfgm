@@ -2,12 +2,15 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <limits.h>
 
-#define SLOTS_NUM ( sizeof( unsigned int ) * 8 )
+typedef unsigned int counter_t;
 
-#define REF_COUNTER_ALIGN ( alignof( unsigned int ) )
+#define SLOTS_NUM ( sizeof( blockmap_t ) * 8 )
 
-#define REF_COUNTER_SIZE ( sizeof( unsigned int ) )
+#define COUNTER_ALIGN ( alignof( counter_t ) )
+
+#define COUNTER_SIZE ( sizeof( counter_t ) )
 
 #define SLAB_ALIGNMENT ( ( sizeof( void* ) > alignof( slab_t ) ) ? \
 	sizeof( void* ) : \
@@ -33,7 +36,20 @@ static inline slab_t *__alloc_slab( cache_t *cache, unsigned int nslots ) {
 	if( nslots < SLOTS_NUM )
 		( *ret )->map >>= ( SLOTS_NUM - nslots );
 
+	unsigned char *cur = *ret + cache->header_sz + cache->blk_sz - 1;
+	for( unsigned char cyc = 0; cur < nslots; ++cyc, cur += cache->blk_sz )
+		*cur = cyc;
+
 	return *ret;
+}
+
+static inline size_t __adjust_align( size_t blk_sz, unsigned int align ) {
+	if( blk_sz & ( align - 1 ) ) {
+		blk_sz &= ~( align - 1 );
+		blk_sz += align;
+	}
+
+	return blk_sz;
 }
 
 cache_t *_cfg_cache_create( unsigned int options,
@@ -41,96 +57,147 @@ cache_t *_cfg_cache_create( unsigned int options,
 	unsigned int align,
 	unsigned int inum
 ) {
+	assert( blk_sz > 0 );
+	
 	// TODO: think about alternative schemes of allocation
 	cache_t *c = calloc( 1, sizeof( cache_t ) );
-	
+
 	c->options = options;
+
+	if( align == 0 )
+		align = sizeof( void* );
+
+	// one byte for sequence number (used to calculate slab header position)
+	blk_sz += 1;
+	// COUNTER_SIZE bytes for number of references if relevant
+	if( options & SLAB_REFERABLE )
+		blk_sz = __adjust_align( blk_sz, COUNTER_ALIGN ) + COUNTER_SIZE;
+
 	// adjust block size to match alignment
-	if( blk_sz % align )
-		blk_sz += align - ( blk_sz % align );
-
-	if( options & SLAB_REFERABLE ) {
-		if( blk_sz % REF_COUNTER_ALIGN )
-			blk_sz += REF_COUNTER_ALIGN -
-				( blk_sz % REF_COUNTER_ALIGN )
-
-		blk_sz += REF_COUNTER_SIZE;
-	}
+	blk_sz = __adjust_align( blk_sz, align );
 
 	c->blk_sz = blk_sz;
 	c->align = align;
 
 	// by default we should allocate block with exact total size
-	c->header_sz = sizeof( slab_t );
 	// then we should consider alignment restrictions and add padding
-	if( ( sizeof( slab_t ) ) % align )
-		c->header_sz += align - ( ( sizeof( slab_t ) ) % align );
+	c->header_sz = __adjust_align( sizeof( slab_t ), align );
 
 	if( inum > 0 ) {
-		slab_t **cur = &( c->head );
-		for( int cyc = 0, nbuckets = inum / SLOTS_NUM;
+		// last bucket isn't full
+		unsigned int last_bucket_sz = inum % SLOTS_NUM;
+		int from = 0;
+		if( last_bucket_sz )
+			c->head = __alloc_slab( c, last_bucket_sz );
+		else {
+			from = 1;
+			c->head = __alloc_slab( c, SLOTS_NUM );
+		}
+
+		slab_t *cur = c->head;
+		for( int cyc = from, nbuckets = inum / SLOTS_NUM;
 			cyc < nbuckets;
 			++cyc
 		) {
-			*cur = __alloc_slab( c, SLOTS_NUM );
-			cur = &( ( *cur )->next );
+			cur->next = __alloc_slab( c, SLOTS_NUM );
+			cur->next->prev = cur;
+			cur = cur->next;
 		}
 
-		// last bucket isn't full
-		unsigned int last_bucket_sz = inum % SLOTS_NUM;
-		if( last_bucket_sz )
-			*cur = __alloc_slab( c, last_bucket_sz );
-
-		c->tail = *cur;
+		c->tail = cur;
 	}
 
 	return c;
 }
 
-extern void _cfg_cache_free( cache_t *cache );
+void _cfg_cache_free( cache_t *cache ) {
+	slab_t *cur = cache->head, *next;
+	while( cur != NULL ) {
+		next = cur->next;
+		free( cur );
+		cur = next;
+	}
 
-extern void _cfg_cache_reap( cache_t *cache );
+	free( cache );
+}
+
+void _cfg_cache_reap( cache_t *cache ) {
+	slab_t *cur = cache->head, *next;
+	while( ( cur != NULL ) && ( cur->map ) )
+		if( cur->map == EMPTY_MAP ) {
+			if( cur->prev != NULL )
+				cur->prev->next = cur->next;
+				
+			if( cur->next != NULL )
+				cur->next->prev = cur->prev;
+				
+			next = cur->next;
+			free( cur );
+			cur = next;
+		}
+}
+
+// tricky, right? here, we find the address of reference counter
+// which is placed at the very end of block
+#define COUNTER_LVALUE( cache, blk ) *( ( counter_t* ) \
+	( ( ( char* ) ( blk ) ) + \
+		( ( ( cache )->blk_sz - 1 - COUNTER_SIZE ) & \
+			( ~( COUNTER_ALIGN - 1 ) ) \
+		) \
+	) \
+)
+
+static inline void __reset_refcount( cache_t *cache, void *blk ) {
+	COUNTER_LVALUE( cache, blk ) = 1;
+}
+
+static inline void __inc_refcount( cache_t *cache, void *blk ) {
+	++COUNTER_LVALUE( cache, blk );
+}
+
+static inline counter_t __dec_refcount( cache_t *cache, void *blk ) {
+	assert( COUNTER_LVALUE( cache, blk ) > 0 );
+	return --COUNTER_LVALUE( cache, blk );
+}
+
+static inline void *__get_block( cache_t *c ) {
+	assert( c->head->map );
+
+	int slotn = ffs( ( int ) cache->head->map ) - 1;
+	s->map &= ~( 1u << slotn );
+	
+	return ( ( ( char *) s ) + c->header_sz + ( c->blk_sz * slotn ) );
+}
 
 // mark object as allocated and increment reference number if the case
 void *_cfg_object_alloc( cache_t *cache ) {
-	void *ret = NULL;
+	assert( cache != NULL );
 	
 	if( cache->head != NULL ) {
-		if( cache->head->map )
-			ret = __get_block( cache->head,
-				ffs( ( int ) cache->head->map ) - 1
-			);
-		else {
+		if( ! cache->head->map ) {
 			if( cache->head->next == NULL ) {
-				ret = __get_block(
-					cache->head = __alloc_slab( cache ),
-					0
-				);
+				cache->head = __alloc_slab( cache, SLOTS_NUM );
 				cache->head->next = cache->tail;
+				cache->tail->prev = cache->head;
 			} else {
 				if( cache->head->next->map ) {
-					cache->tail->next = cache->head;
-					cache->tail = cache->head;
-					cache->head = cache->head->next;
-					cache->head->next = cache->tail->next;
-					cache->tail->next = NULL;
-					ret = __get_block( cache->head,
-						ffs( ( int ) cache->head->map ) - 1
-					);
+					slab_t *oldhead = cache->head,
+						*oldtail = cache->tail,
+						*newhead = oldhead->next;
+					( oldtail->next = oldhead )->prev = oldtail;
+					( cache->tail = oldhead )->next = NULL;
+					( cache->head = newhead )->prev = NULL;
 				} else {
-					slab_t *news = __alloc_slab( cache );
-					news->next = cache->head;
+					slab_t *news = __alloc_slab( cache, SLOTS_NUM );
+					( news->next = cache->head )->prev = news;
 					cache->head = news;
-					ret = __get_block( news, 0 );
 				}
 			}
 		}
 	} else
-		ret = __get_block(
-			cache->head = cache->tail = __alloc_slab( cache ),
-			0
-		);
+		cache->head = cache->tail = __alloc_slab( cache, SLOTS_NUM );
 
+	void *ret = __get_block( cache );
 	if( cache->options & SLAB_REFERABLE )
 		__reset_refcount( cache, ret );
 
@@ -138,8 +205,40 @@ void *_cfg_object_alloc( cache_t *cache ) {
 }
 
 // increment reference number if the case
-extern void *_cfg_object_get( cache_t *cache, void *obj );
+void *_cfg_object_get( cache_t *cache, void *obj ) {
+	assert( cache != NULL );
+	
+	if( cache->options & SLAB_REFERABLE )
+		__inc_refcount( cache, obj );
+
+	return obj;
+}
 
 // decrement reference number if the case; when number approaches zero then
 // object will be marked as free
-extern void *_cfg_object_put( cache_t *cache, void *obj );
+void *_cfg_object_put( cache_t *cache, void *obj ) {
+	assert( cache != NULL );
+
+	if( ( !( cache->options & SLAB_REFERABLE ) ) ||
+		( !__dec_refcount( cache, obj ) )
+	) {
+		unsigned int pos = ( ( ( unsigned char* ) obj ) + cache->blk_sz - 1 );
+		slab_t *cur = ( ( unsigned char* ) obj ) - cache->blk_sz * pos -
+			cache->header_sz;
+
+		if( ( ! cur->map ) && ( cur != cache->head ) ) {
+			cur->prev->next = cur->next;
+
+			if( cur->next != NULL )
+				cur->next->prev = cur->prev;
+
+			( cache->head->prev = cur )->prev = NULL;
+			cur->next = cache->head;
+			cache->head = cur;
+		}
+
+		cur->map |= 1u << pos;
+	}
+
+	return obj;
+}

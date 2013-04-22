@@ -1,17 +1,13 @@
 #ifndef PCFGM_INTERNAL_ALLOC
 #define PCFGM_INTERNAL_ALLOC
 
-typedef struct {
-	unsigned int nrefs;
-	uint8_t bytes[];
-} ref_buffer_t;
-
-typedef uint8_t buffer_t[];
+typedef unsigned int blockmap_t;
 
 typedef struct {
 	slab_t *next;
+	slab_t *prev;
 	// bitmap of free and occupied blocks
-	unsigned int map;
+	blockmap_t map;
 } slab_t;
 
 #defined SLAB_REFERABLE 1
